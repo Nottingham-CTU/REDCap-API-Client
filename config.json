@@ -1,0 +1,41 @@
+{
+	"name" : "API Client",
+	"namespace" : "Nottingham\\APIClient",
+	"description" : "Interface with external API endpoints using REDCap.",
+	"authors": [
+		{
+			"name": "Richard Dooley",
+			"email": "richard.dooley@nottingham.ac.uk",
+			"institution": "University of Nottingham"
+		}
+	],
+	"permissions" : [],
+	"framework-version" : 3,
+	"compatibility" : { "redcap-version-min" : "9.6.5" },
+	"links" : {
+		"project" : [
+			{ "name" : "API Client", "icon" : "fas fa-exchange-alt", "url" : "connections.php" }
+		]
+	},
+	"system-settings" : [
+		{
+			"key" : "allow-normal-users",
+			"name" : "Allow normal users (non-administators) to configure API connections",
+			"type" : "checkbox",
+			"super-users-only" : true
+		}
+	],
+	"project-settings" : [
+		{
+			"key" : "allow-normal-users-project",
+			"name" : "Allow normal users (non-administators) to configure API connections",
+			"type" : "radio",
+			"choices" : [
+				{ "value" : "", "name" : "Use system setting" },
+				{ "value" : "A", "name" : "Allow" },
+				{ "value" : "D", "name" : "Deny" }
+			],
+			"super-users-only" : true
+		}
+	]
+}
