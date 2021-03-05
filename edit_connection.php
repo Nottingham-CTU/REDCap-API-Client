@@ -27,37 +27,37 @@ $connData = $module->getConnectionData( $connID );
 // Handle form submissions.
 if ( ! empty( $_POST ) )
 {
-	// Validate data
-	if ( str_replace( [ "\r", "\n" ], ' ',
-	                  substr( strtolower( $_POST['sql_query'] ), 0, 7 ) ) != 'select ' )
-	{
-		exit;
-	}
-	$validQuery = ( mysqli_query( $conn, str_replace( '$$PROJECT$$', $module->getProjectId(),
-	                                                  $_POST['sql_query'] ) ) !== false );
-	if ( isset( $_SERVER['HTTP_X_RC_ADVREP_SQLCHK'] ) )
-	{
-		header( 'Content-Type: application/json' );
-		if ( $validQuery )
-		{
-			echo 'true';
-		}
-		else
-		{
-			echo json_encode( mysqli_error( $conn ) );
-		}
-		exit;
-	}
-	if ( ! $validQuery )
-	{
-		exit;
-	}
-
 	// Save data
-	$module->submitReportConfig( $reportID );
-	$reportData = [ 'sql_query' => $_POST['sql_query'] ];
-	$module->setReportData( $reportID, $reportData );
-	header( 'Location: ' . $module->getUrl( 'reports_edit.php' ) );
+	$submitConfig = [];
+	$submitData = [];
+	$submitTypePrefix = $_POST[ 'conn_type' ] . '_';
+	foreach ( $_POST as $submitVar => $submitVal )
+	{
+		if ( substr( $submitVar, 0, 5 ) == 'conn_' )
+		{
+			if ( $submitVar == 'conn_active' )
+			{
+				$submitConfig[ 'active' ] = ( $submitVal == 'Y' );
+			}
+			else
+			{
+				$submitConfig[ substr( $submitVar, 5 ) ] = $submitVal;
+			}
+		}
+		elseif ( substr( $submitVar, 0, strlen( $submitTypePrefix ) ) == $submitTypePrefix )
+		{
+			$submitData[ substr( $submitVar, strlen( $submitTypePrefix ) ) ] = $submitVal;
+		}
+	}
+	if ( $connID == '' )
+	{
+		$module->addConnection( $submitConfig, $submitData );
+	}
+	else
+	{
+		$module->updateConnection( $connID, $submitConfig, $submitData );
+	}
+	header( 'Location: ' . $module->getUrl( 'connections.php' ) );
 	exit;
 }
 
@@ -122,10 +122,15 @@ else
     <td>
      <select name="conn_type" required>
       <option value=""></option>
-      <option value="http"<?php echo $connConfig['type'] == 'http'
-                                     ? ' selected' : ''; ?>>HTTP / REST</option>
-      <option value="wsdl"<?php echo $connConfig['type'] == 'wsdl'
-                                     ? ' selected' : ''; ?>>SOAP (WSDL)</option>
+<?php
+foreach ( $module->getConnectionTypes() as $connTypeID => $connTypeName )
+{
+?>
+      <option value="<?php echo $connTypeID; ?>"<?php echo $connConfig['type'] == $connTypeID
+                                     ? ' selected' : ''; ?>><?php echo $connTypeName; ?></option>
+<?php
+}
+?>
      </select>
     </td>
    </tr>
@@ -134,12 +139,12 @@ else
     <td>
      <label>
       <input type="radio" name="conn_active" value="Y" required<?php
-		echo $connConfig['active'] ? ' checked' : ''; ?>> Yes
+		echo ($connConfig['active'] ?? true) ? ' checked' : ''; ?>> Yes
      </label>
      <br>
      <label>
       <input type="radio" name="conn_active" value="N" required<?php
-		echo $connConfig['active'] ? '' : ' checked'; ?>> No
+		echo ($connConfig['active'] ?? true) ? '' : ' checked'; ?>> No
      </label>
     </td>
    </tr>
@@ -152,16 +157,38 @@ else
      </label>
      <br>
      <label>
-      <input type="radio" name="conn_trigger" value="" required<?php
+      <input type="radio" name="conn_trigger" value="C" required<?php
 		echo $connConfig['trigger'] == 'C' ? ' checked' : ''; ?>> On schedule
      </label>
     </td>
    </tr>
-   <tr>
+   <tr class="conn_field_limit">
     <td>Limit to event/form</td>
     <td>
      <?php $module->outputEventDropdown( 'conn_event', $connConfig['event'] ); echo "\n"; ?>
      <?php $module->outputFormDropdown( 'conn_form', $connConfig['form'] ); echo "\n"; ?>
+    </td>
+   </tr>
+   <tr class="conn_field_cron">
+    <td>Schedule</td>
+    <td>
+     <input type="text" name="conn_cron_min" style="width:50px" placeholder="min"
+            title="Minutes after the hour" pattern="[1-5]?[0-9]" value="<?php
+		echo htmlspecialchars( $connConfig['cron_min'] ); ?>">
+     <input type="text" name="conn_cron_hr" style="width:50px" placeholder="hr"
+            title="Hour of the day" pattern="1?[0-9]|2[0-3]" value="<?php
+		echo htmlspecialchars( $connConfig['cron_hr'] ); ?>">
+     <input type="text" name="conn_cron_day" style="width:50px" placeholder="day"
+            title="Day of the month (* = all)" pattern="[1-9]|[12][0-9]|3[01]|\*" value="<?php
+		echo htmlspecialchars( $connConfig['cron_day'] ); ?>">
+     <input type="text" name="conn_cron_mon" style="width:50px" placeholder="mon"
+            title="Month (* = all)" pattern="[1-9]|1[012]|\*" value="<?php
+		echo htmlspecialchars( $connConfig['cron_mon'] ); ?>">
+     <input type="text" name="conn_cron_dow" style="width:50px" placeholder="dow"
+            title="Day of week (0 = Sunday, 6 = Saturday, * = all)" pattern="[0-6]|\*" value="<?php
+		echo htmlspecialchars( $connConfig['cron_dow'] ); ?>">
+     <br>
+     (Schedule time is approximate)
     </td>
    </tr>
    <tr>
@@ -272,6 +299,22 @@ echo $connData['body'] ?? ''; ?></textarea>
      $('.field_req_' + vOption).prop('required',true)
    })
    $('select[name="conn_type"]').change()
+   $('input[name="conn_trigger"]').click( function()
+   {
+     var vOption = $('input[name="conn_trigger"]:checked').val()
+     $('.conn_field_limit').css('display', vOption == 'R' ? '' : 'none')
+     $('.conn_field_cron').css('display', vOption == 'C' ? '' : 'none')
+     $('.conn_field_cron input').prop('required', vOption == 'C')
+     if ( vOption != 'R' )
+     {
+       $('.conn_field_limit select').val('')
+     }
+     if ( vOption != 'C' )
+     {
+       $('.conn_field_cron input').val('')
+     }
+   })
+   $('input[name="conn_trigger"]:checked').click()
    $('select[name="http_method"]').change( function()
    {
      var vOption = $('select[name="http_method"]').val()
@@ -325,6 +368,49 @@ echo $connData['body'] ?? ''; ?></textarea>
      vNew.insertAfter( vPrev )
      return false
    })
+<?php
+if ( $connConfig['type'] == 'http' )
+{
+	$placeholders = [ 'name' => $connData['ph_name'], 'event' => $connData['ph_event'],
+	                  'field' => $connData['ph_field'], 'func' => $connData['ph_func'],
+	                  'args' => $connData['ph_func_args'], 'format' => $connData['ph_format'] ];
+?>
+   var vPlaceholders = JSON.parse( '<?php echo addslashes( json_encode( $placeholders ) ); ?>' )
+   for ( var i = 0; i < vPlaceholders['name'].length; i++ )
+   {
+     $('#http_add_ph').click()
+     $('tr[data-index="'+(i+1)+'"] input[name="http_ph_name[]"]').val(vPlaceholders['name'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="http_ph_event[]"]').val(vPlaceholders['event'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="http_ph_field[]"]').val(vPlaceholders['field'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="http_ph_func[]"]').val(vPlaceholders['func'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="http_ph_func_args[]"]').val(vPlaceholders['args'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="http_ph_format[]"]').val(vPlaceholders['format'][i])
+   }
+<?php
+}
+elseif ( $connConfig['type'] == 'wsdl' )
+{
+	$params = [ 'name' => $connData['param_name'], 'type' => $connData['param_type'],
+	            'val' => $connData['param_val'], 'event' => $connData['param_event'],
+	            'field' => $connData['param_field'], 'func' => $connData['param_func'],
+	            'args' => $connData['param_func_args'] ];
+?>
+   var vParams = JSON.parse( '<?php echo addslashes( json_encode( $params ) ); ?>' )
+   for ( var i = 0; i < vParams['name'].length; i++ )
+   {
+     $('#wsdl_add_param').click()
+     $('tr[data-index="'+(i+1)+'"] input[name="wsdl_param_name[]"]').val(vParams['name'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_type[]"]').val(vParams['type'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="wsdl_param_val[]"]').val(vParams['val'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_event[]"]').val(vParams['event'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_field[]"]').val(vParams['field'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_func[]"]').val(vParams['func'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="wsdl_param_func_args[]"]').val(vParams['args'][i])
+   }
+   $('select[name="wsdl_param_type[]"]').change()
+<?php
+}
+?>
  })
 </script>
 <?php

@@ -52,11 +52,9 @@ if ( count( $listConnections ) > 0 )
     <?php echo htmlspecialchars( $infoConnection['label'] ), "\n"; ?>
    </span>
    <br>
-<?php /* TODO: Key details from connection. */ ?>
    <span style="font-size:90%">
-    <b>Type:</b> <?php echo $infoReport['type']; ?> &nbsp;|&nbsp;
-    <b>Category:</b> <?php echo $infoReport['category'] ?? '<i>(none)</i>'; ?> &nbsp;|&nbsp;
-    <b>Visibility:</b> <?php echo $infoReport['visible'] ? 'visible' : 'hidden', "\n"; ?>
+    <b>Type:</b> <?php echo $module->getConnectionTypes()[$infoConnection['type']]; ?> &nbsp;|&nbsp;
+    <b>Active:</b> <?php echo $infoConnection['active'] ? 'Yes' : 'No', "\n"; ?>
    </span>
   </td>
   <td style="width:90px;text-align:center">

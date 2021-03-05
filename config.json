@@ -10,11 +10,11 @@
 		}
 	],
 	"permissions" : [],
-	"framework-version" : 3,
-	"compatibility" : { "redcap-version-min" : "9.6.5" },
+	"framework-version" : 6,
+	"compatibility" : { "redcap-version-min" : "10.6.10" },
 	"links" : {
 		"project" : [
-			{ "name" : "API Client", "icon" : "fas fa-exchange-alt", "url" : "connections.php" }
+			{ "name" : "API Client", "icon" : "fas fa-laptop-code", "url" : "connections.php" }
 		]
 	},
 	"system-settings" : [
