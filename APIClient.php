@@ -65,9 +65,16 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
+			// Check if the submitted form is repeating.
+			$repeatingForms = $this->getRepeatingForms( $event_id );
+			$isRepeating = ( ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null ) ||
+			                 ( count( $repeatingForms ) > 0 &&
+			                   in_array( $instrument, $repeatingForms ) ) );
 			// Check the conditional logic (if applicable).
 			if ( $connConfig['condition'] != '' &&
-			     ! in_array( $record, $this->getRecordsMatchingCondition( $connConfig['condition'] ) ) )
+			     \REDCap::evaluateLogic( $connConfig['condition'], $project_id, $record, $event_id,
+			                             ( $isRepeating ? $repeat_instance : null ),
+			                             ( $isRepeating ? $instrument : null ) ) !== true )
 			{
 				continue;
 			}
@@ -75,11 +82,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$connData = $this->getConnectionData( $connID );
 			if ( $connConfig['type'] == 'http' )
 			{
-				$this->performHTTP( $connData, $record );
+				$this->performHTTP( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ) );
 			}
 			elseif ( $connConfig['type'] == 'wsdl' )
 			{
-				$this->performWSDL( $connData, $record );
+				$this->performWSDL( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ) );
 			}
 		}
 	}
@@ -307,7 +314,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Get the value of a project field.
-	function getProjectFieldValue( $recordID, $eventName, $fieldName,
+	function getProjectFieldValue( $recordID, $eventName, $fieldName, $instanceNum,
 	                               $funcName = '', $funcParams = '' )
 	{
 		// Get the event ID from the event name (if applicable).
@@ -316,20 +323,85 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			$eventID = \REDCap::getEventIdFromUniqueEvent( $eventName );
 		}
+
 		// Get the value for the (event and) field.
 		$data = \REDCap::getData( [ 'return_format' => 'array', 'records' => $recordID,
 		                            'fields' => $fieldName, 'events' => $eventID,
 		                            'combine_checkbox_values' => true ] );
 		$data = $data[$recordID];
+
+		// Separate repeat instances/events data from the rest of the data.
+		$repeatData = null;
+		if ( isset( $data['repeat_instances'] ) )
+		{
+			$repeatData = $data['repeat_instances'];
+			unset( $data['repeat_instances'] );
+		}
+
+		// Get the data corresponding to the chosen event.
 		if ( $eventID == null )
 		{
-			$data = array_shift( $data );
+			if ( ! empty( $data ) )
+			{
+				$data = array_shift( $data );
+			}
+			if ( $repeatData !== null )
+			{
+				$repeatData = array_shift( $repeatData );
+			}
 		}
 		else
 		{
-			$data = $data[$eventID];
+			if ( isset( $data[$eventID] ) )
+			{
+				$data = $data[$eventID];
+			}
+			else
+			{
+				$data = [];
+			}
+			if ( $repeatData !== null )
+			{
+				$repeatData = $repeatData[$eventID];
+			}
 		}
-		$data = $data[$fieldName];
+
+		// Extract the data for the specified field. If the data is in a repeating instance, find
+		// it in the specified instance.
+		if ( isset( $data[$fieldName] ) && $data[$fieldName] != '' )
+		{
+			$data = $data[$fieldName];
+		}
+		else
+		{
+			$data = '';
+			if ( $repeatData !== null )
+			{
+				foreach ( $repeatData as $repeatInstances )
+				{
+					$selectedInstance = $instanceNum;
+					if ( $selectedInstance < 1 )
+					{
+						$selectedInstance = count( $repeatInstances ) - $selectedInstance;
+						if ( $selectedInstance < 1 )
+						{
+							$selectedInstance = 1;
+						}
+					}
+					elseif ( $selectedInstance > count( $repeatInstances ) )
+					{
+						$selectedInstance = count( $repeatInstances );
+					}
+					if ( isset( $repeatInstances[$selectedInstance][$fieldName] ) &&
+					     $repeatInstances[$selectedInstance][$fieldName] != '' )
+					{
+						$data = $repeatInstances[$selectedInstance][$fieldName];
+						break;
+					}
+				}
+			}
+		}
+
 		// If applicable, apply a function to the value.
 		if ( $funcName == 'date' )
 		{
@@ -343,23 +415,6 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 		// Return the value.
 		return $data;
-	}
-
-
-
-	// Get the records matching the condition.
-	function getRecordsMatchingCondition( $condition )
-	{
-		$fieldName = \REDCap::getRecordIdField();
-		$data = json_decode( \REDCap::getData( [ 'return_format' => 'json',
-		                                         'fields' => $fieldName,
-		                                         'filterLogic' => $condition ] ), true );
-		$listRecords = [];
-		foreach ( $data as $item )
-		{
-			$listRecords[ $item[$fieldName] ] = true;
-		}
-		return array_keys( $listRecords );
 	}
 
 
@@ -479,7 +534,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Perform a HTTP REST request.
-	function performHTTP( $connData, $recordID )
+	function performHTTP( $connData, $recordID, $defaultInstance )
 	{
 		// Get the URL, request method, headers and body.
 		$url = $connData['url'];
@@ -494,9 +549,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
+			$useInstance = ( $connData['ph_inst'] == '' ? $defaultInstance : $connData['ph_inst'] );
 			$placeholderValue =
 				$this->getProjectFieldValue( $recordID, ( $connData['ph_event'][$i] ?? '' ),
-				                             $connData['ph_field'][$i], $connData['ph_func'][$i],
+				                             $connData['ph_field'][$i], $useInstance,
+				                             $connData['ph_func'][$i],
 				                             $connData['ph_func_args'][$i] );
 			// Apply format if applicable.
 			if ( $connData['ph_format'][$i] == 'base64' )
@@ -546,7 +603,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Perform a SOAP WSDL request.
-	function performWSDL( $connData, $recordID )
+	function performWSDL( $connData, $recordID, $defaultInstance )
 	{
 		// Get the WSDL endpoint URL and function name.
 		$url = $connData['url'];
@@ -566,16 +623,140 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			elseif ( $connData['param_type'][$i] == 'F' ) // project field
 			{
+				$useInstance =
+					( $connData['param_inst'] == '' ? $defaultInstance : $connData['param_inst'] );
 				$listParams[ $connData['param_name'][$i] ] =
 					$this->getProjectFieldValue( $recordID, ( $connData['param_event'][$i] ?? '' ),
-					                             $connData['param_field'][$i],
+					                             $connData['param_field'][$i], $useInstance,
 					                             $connData['param_func'][$i],
 					                             $connData['param_func_args'][$i] );
 			}
 		}
 		// Use SoapClient to perform the request.
-		$soap = new SoapClient( $url, [ 'cache_wsdl' => WSDL_CACHE_MEMORY ] );
+		$soap = new \SoapClient( $url, [ 'cache_wsdl' => WSDL_CACHE_MEMORY ] );
 		$soapResult = call_user_func( [ $soap, $function ], $listParams );
+		// Prepare the return values (if any).
+		$soapReturn = [];
+		for ( $i = 0; $i < count( $connData['response_field'] ); $i++ )
+		{
+			if ( $connData['response_field'][$i] == '' )
+			{
+				continue;
+			}
+			$returnValue = '';
+			switch( $connData['response_type'][$i] )
+			{
+				case 'C':
+					$returnValue = $connData['response_val'][$i];
+					break;
+				case 'R':
+					try
+					{
+						$returnValue = $soapResult->{$connData['response_val'][$i]};
+					}
+					catch ( Exception $e )
+					{
+						$returnValue = '[Invalid response name]';
+					}
+					break;
+				case 'S':
+					$returnValue = date( 'Y-m-d H:i:s' );
+					break;
+				case 'U':
+					$returnValue = gmdate( 'Y-m-d H:i:s' );
+					break;
+			}
+			$returnItem = [ 'event' => ( $connData['response_event'][$i] ?? '' ),
+			                'field' => $connData['response_field'][$i],
+			                'instance' => ( $connData['response_inst'][$i] == ''
+			                                ? $defaultInstance : $connData['response_inst'][$i] ),
+			                'value' => $returnValue ];
+			$soapReturn[] = $returnItem;
+		}
+		// Write the return values to the record.
+		if ( count( $soapReturn ) > 0 )
+		{
+			$this->setProjectFieldValues( $recordID, $soapReturn );
+		}
+	}
+
+
+
+	// Get the value of a project field.
+	// $inputData is a 2-level array, where the second level array keys are 'event', 'field',
+	// 'instance', and 'value', defining the fields and the data to insert.
+	function setProjectFieldValues( $recordID, $inputData )
+	{
+		// Prepare the dataset for insert.
+		$data = [ $recordID => [] ];
+		$defaultEventID = array_shift(
+		                        array_keys(
+		                            array_shift(
+		                                \REDCap::getData( [ 'return_format' => 'array',
+		                                                    'fields' => \REDCap::getRecordIdField(),
+		                                                    'records' => $recordID ] ) ) ) );
+		// Build the dataset for insert from the input data.
+		foreach ( $inputData as $inputItem )
+		{
+			// Ensure all the metadata is present.
+			if ( ! isset( $inputItem['event'], $inputItem['field'],
+			              $inputItem['instance'], $inputItem['value'] ) )
+			{
+				continue;
+			}
+			// Get the event ID (if empty, use the default, e.g. for non-longitudinal projects).
+			$eventID = $defaultEventID;
+			if ( $inputItem['event'] != '' )
+			{
+				$eventID = \REDCap::getEventIdFromUniqueEvent( $inputItem['event'] );
+			}
+			// Determine the instrument for the field.
+			$instrument = $this->getProject()->getFormForField( $inputItem['field'] );
+			// Determine if the field is on a repeating instrument/event.
+			$repeatingForms = $this->getRepeatingForms( $eventID );
+			$repeatInstrument = false;
+			if ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null )
+			{
+				$repeatInstrument = '';
+			}
+			elseif ( count( $repeatingForms ) > 0 && in_array( $instrument, $repeatingForms ) )
+			{
+				$repeatInstrument = $instrument;
+			}
+			// Add the data to the array ready for input.
+			if ( $repeatInstrument === false )
+			{
+				// Single-instance data.
+				$data[ $recordID ][ $eventID ][ $inputItem['field'] ] = $inputItem['value'];
+			}
+			else
+			{
+				// Multi-instance data.
+				$selectedInstance = $inputItem['instance'];
+				if ( $selectedInstance < 1 )
+				{
+					$selectedInstance = count( $repeatInstances ) - $selectedInstance;
+					if ( $selectedInstance < 1 )
+					{
+						$selectedInstance = 1;
+					}
+				}
+				elseif ( $selectedInstance > count( $repeatInstances ) )
+				{
+					$selectedInstance = count( $repeatInstances );
+				}
+				$data[ 'repeat_instances' ][ $eventID ][ $repeatInstrument ][ $selectedInstance ]
+				                                      [ $inputItem['field'] ] = $inputData['value'];
+			}
+		}
+		// Exit the function here if no data to add.
+		if ( empty( $data[ $recordID ] ) )
+		{
+			return;
+		}
+		// Add the data to the record.
+		\REDCap::saveData( [ 'dataFormat' => 'array', 'data' => $data, 'dateFormat' => 'YMD',
+		                     'overwriteBehavior' => 'normal' ] );
 	}
 
 

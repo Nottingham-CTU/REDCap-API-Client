@@ -64,7 +64,7 @@ if ( ! empty( $_POST ) )
 
 
 // Generate event/field drop down.
-function fieldSelector( $name )
+function fieldSelector( $name, $incFunc = true )
 {
 	global $module;
 	if ( REDCap::isLongitudinal() )
@@ -73,10 +73,16 @@ function fieldSelector( $name )
 		echo ' ';
 	}
 	$module->outputFieldDropdown( $name . '_field[]', '' );
-	echo ' <select name="', $name, '_func[]" style="margin-left:20px">',
-	     '<option value="">Normal text</option>',
-	     '<option value="date">Format date</option>',
-	     '</select> <input type="text" style="width:80px" name="', $name, '_func_args[]">';
+	echo ' <input type="text" name="', htmlspecialchars( $name ), '_inst[]"',
+		 ' pattern="^(0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
+	if ( $incFunc )
+	{
+		echo ' <select name="', $name, '_func[]" style="margin-left:20px">',
+		     '<option value="">Normal text</option>',
+		     '<option value="date">Format date</option>',
+		     '</select> <input type="text" style="width:90px" name="', $name, '_func_args[]"',
+		     ' title="Enter function parameters">';
+	}
 }
 
 
@@ -165,7 +171,17 @@ foreach ( $module->getConnectionTypes() as $connTypeID => $connTypeName )
    <tr class="conn_field_limit">
     <td>Limit to event/form</td>
     <td>
-     <?php $module->outputEventDropdown( 'conn_event', $connConfig['event'] ); echo "\n"; ?>
+     <?php
+if ( REDCap::isLongitudinal() )
+{
+	$module->outputEventDropdown( 'conn_event', $connConfig['event'] );
+	echo "\n";
+}
+else
+{
+	echo '<input type="hidden" name="conn_event" value="">', "\n";
+}
+?>
      <?php $module->outputFormDropdown( 'conn_form', $connConfig['form'] ); echo "\n"; ?>
     </td>
    </tr>
@@ -275,6 +291,13 @@ echo $connData['body'] ?? ''; ?></textarea>
     <td></td>
     <td><a href="#" class="fas fa-plus-circle fs12" id="wsdl_add_param"> Add parameter</a></td>
    </tr>
+   <tr><th colspan="2">Response Fields</th></tr>
+   <tr>
+    <td></td>
+    <td>
+     <a href="#" class="fas fa-plus-circle fs12" id="wsdl_add_response"> Add response field</a>
+    </td>
+   </tr>
   </tbody>
   <tbody>
    <tr><td colspan="2">&nbsp;</td></tr>
@@ -368,12 +391,38 @@ echo $connData['body'] ?? ''; ?></textarea>
      vNew.insertAfter( vPrev )
      return false
    })
+   $('#wsdl_add_response').click( function()
+   {
+     var vPrev = $('#wsdl_add_response').parent().parent().prev()
+     var vNum = vPrev.data('index')
+     if ( vNum == undefined )
+     {
+       vNum = 0
+     }
+     vNum++
+     var vNew = $('<tr data-index="' + vNum + '"><td>Response Field ' + vNum + '</td><td>' +
+                  'Field:<br><?php fieldSelector('wsdl_response', false); ?><br>Type:<br>' +
+                  '<select name="wsdl_response_type[]"><option value="C">Constant value</option>' +
+                  '<option value="R">Return value</option>' +
+                  '<option value="S">Server date/time</option>' +
+                  '<option value="U">UTC date/time</option></select><br><span>Value:<br>' +
+                  '<input type="text" name="wsdl_response_val[]"></span></td></tr>')
+     //vNew.find('span').slice(1).css('display','none')
+     vNew.find('select[name="wsdl_response_type[]"]').change(function(){
+       var vOption = vNew.find('select[name="wsdl_response_type[]"]').val()
+       var vSpan = vNew.find('span')
+       vSpan.eq(0).css('display', ( vOption == 'C' || vOption == 'R' ) ? '' : 'none')
+     })
+     vNew.insertAfter( vPrev )
+     return false
+   })
 <?php
 if ( $connConfig['type'] == 'http' )
 {
 	$placeholders = [ 'name' => $connData['ph_name'], 'event' => $connData['ph_event'],
-	                  'field' => $connData['ph_field'], 'func' => $connData['ph_func'],
-	                  'args' => $connData['ph_func_args'], 'format' => $connData['ph_format'] ];
+	                  'field' => $connData['ph_field'], 'inst' => $connData['ph_inst'],
+	                  'func' => $connData['ph_func'], 'args' => $connData['ph_func_args'],
+	                  'format' => $connData['ph_format'] ];
 ?>
    var vPlaceholders = JSON.parse( '<?php echo addslashes( json_encode( $placeholders ) ); ?>' )
    for ( var i = 0; i < vPlaceholders['name'].length; i++ )
@@ -382,6 +431,7 @@ if ( $connConfig['type'] == 'http' )
      $('tr[data-index="'+(i+1)+'"] input[name="http_ph_name[]"]').val(vPlaceholders['name'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="http_ph_event[]"]').val(vPlaceholders['event'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="http_ph_field[]"]').val(vPlaceholders['field'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="http_ph_inst[]"]').val(vPlaceholders['inst'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="http_ph_func[]"]').val(vPlaceholders['func'][i])
      $('tr[data-index="'+(i+1)+'"] input[name="http_ph_func_args[]"]').val(vPlaceholders['args'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="http_ph_format[]"]').val(vPlaceholders['format'][i])
@@ -392,8 +442,8 @@ elseif ( $connConfig['type'] == 'wsdl' )
 {
 	$params = [ 'name' => $connData['param_name'], 'type' => $connData['param_type'],
 	            'val' => $connData['param_val'], 'event' => $connData['param_event'],
-	            'field' => $connData['param_field'], 'func' => $connData['param_func'],
-	            'args' => $connData['param_func_args'] ];
+	            'field' => $connData['param_field'], 'inst' => $connData['param_inst'],
+	            'func' => $connData['param_func'], 'args' => $connData['param_func_args'] ];
 ?>
    var vParams = JSON.parse( '<?php echo addslashes( json_encode( $params ) ); ?>' )
    for ( var i = 0; i < vParams['name'].length; i++ )
@@ -404,10 +454,28 @@ elseif ( $connConfig['type'] == 'wsdl' )
      $('tr[data-index="'+(i+1)+'"] input[name="wsdl_param_val[]"]').val(vParams['val'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_event[]"]').val(vParams['event'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_field[]"]').val(vParams['field'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_inst[]"]').val(vParams['inst'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="wsdl_param_func[]"]').val(vParams['func'][i])
      $('tr[data-index="'+(i+1)+'"] input[name="wsdl_param_func_args[]"]').val(vParams['args'][i])
    }
    $('select[name="wsdl_param_type[]"]').change()
+<?php
+	$resps = [ 'event' => $connData['response_event'], 'field' => $connData['response_field'],
+	           'inst' => $connData['response_inst'], 'name' => $connData['response_name'],
+	           'type' => $connData['response_type'], 'val' => $connData['response_val'] ];
+?>
+   var vResps = JSON.parse( '<?php echo addslashes( json_encode( $resps ) ); ?>' )
+   for ( var i = 0; i < vResps['field'].length; i++ )
+   {
+     $('#wsdl_add_response').click()
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_response_event[]"]').val(vResps['event'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_response_field[]"]').val(vResps['field'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_response_inst[]"]').val(vResps['inst'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="wsdl_response_name[]"]').val(vResps['name'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="wsdl_response_type[]"]').val(vResps['type'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="wsdl_response_val[]"]').val(vResps['val'][i])
+   }
+   $('select[name="wsdl_response_type[]"]').change()
 <?php
 }
 ?>
