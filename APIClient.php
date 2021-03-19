@@ -60,7 +60,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			// Check that the event/form is the triggering event/form (if applicable).
 			$connEventID = $connConfig['event'] == ''
 			                    ? '' : \REDCap::getEventIdFromUniqueEvent( $connConfig['event'] );
-			if ( ( $connConfig['event'] != '' && $connConfig['event'] != $connEventID ) ||
+			if ( ( $connConfig['event'] != '' && $connEventID != $event_id ) ||
 			     ( $connConfig['form'] != '' && $connConfig['form'] != $instrument ) )
 			{
 				continue;
@@ -732,21 +732,26 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			else
 			{
 				// Multi-instance data.
+				$totalInstances = \REDCap::getData( [ 'return_format' => 'array',
+				                                      'fields' => $inputItem['field'],
+				                                      'records' => $recordID ] );
+				$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
+				                                                [ $eventID ][ $repeatInstrument ] );
 				$selectedInstance = $inputItem['instance'];
 				if ( $selectedInstance < 1 )
 				{
-					$selectedInstance = count( $repeatInstances ) - $selectedInstance;
+					$selectedInstance = $totalInstances - $selectedInstance;
 					if ( $selectedInstance < 1 )
 					{
 						$selectedInstance = 1;
 					}
 				}
-				elseif ( $selectedInstance > count( $repeatInstances ) )
+				elseif ( $selectedInstance > $totalInstances )
 				{
-					$selectedInstance = count( $repeatInstances );
+					$selectedInstance = $totalInstances;
 				}
-				$data[ 'repeat_instances' ][ $eventID ][ $repeatInstrument ][ $selectedInstance ]
-				                                      [ $inputItem['field'] ] = $inputData['value'];
+				$data[ $recordID ][ 'repeat_instances' ][ $eventID ][ $repeatInstrument ]
+				                 [ $selectedInstance ][ $inputItem['field'] ] = $inputItem['value'];
 			}
 		}
 		// Exit the function here if no data to add.
