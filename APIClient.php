@@ -96,7 +96,79 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Apply any relevant connections using cron job.
 	function runCron( $infoCron )
 	{
+		$oldContext = $_GET['pid'];
 		$execTime = time();
+		$execDay = date( 'j', $execTime );
+		$execMonth = date( 'n', $execTime );
+		$execYear = date( 'Y', $execTime );
+		$listCrons = $this->getSystemSetting( 'cronlist' );
+		if ( $listCrons === null )
+		{
+			return;
+		}
+		$listCrons = json_decode( $listCrons, true );
+		foreach ( $listCrons as $prConnID => $cronDetails )
+		{
+			// Get the project and connection ID for the cron, and set the project context.
+			list( $projectID, $connID ) = explode( '.', $prConnID, 2 );
+			$_GET['pid'] = $projectID;
+			// Get the cron configuration, and test recent days for a match.
+			$testDay = $execDay + 1;
+			$testMonth = $execMonth;
+			$testYear = $execYear;
+			$isMatch = false;
+			do
+			{
+				$testDay--;
+				$testTime = mktime( $cronDetails['hr'], $cronDetails['min'], 0,
+				                    $testMonth, $testDay, $testYear );
+				$testDay = date( 'j', $testTime );
+				$testMonth = date( 'n', $testTime );
+				$testYear = date( 'Y', $testTime );
+				$testDoW = date( 'w', $testTime );
+				if ( $testTime <= $execTime &&
+				     ( $cronDetails['day'] == '*' || $cronDetails['day'] == $testDay ) &&
+				     ( $cronDetails['mon'] == '*' || $cronDetails['mon'] == $testMonth ) &&
+				     ( $cronDetails['dow'] == '*' || $cronDetails['dow'] == $testDoW ) )
+				{
+					$isMatch = true;
+				}
+			}
+			while ( ! $isMatch && $testTime > $execTime - ( 86400 * 7 ) );
+			// If there is not a match, or if the most recent matching run time is equal or
+			// prior to the last run time, proceed to the next cron item.
+			if ( ! $isMatch || $testTime <= $this->getProjectSetting( "conn-lastrun-$connID" ) )
+			{
+				continue;
+			}
+			$this->setProjectSetting( "conn-lastrun-$connID", $execTime );
+			// For each record...
+			foreach ( array_keys( \REDCap::getData( [ 'project_id' => $projectID,
+			                                          'return_format' => 'array',
+			                                          'fields' => $this->getRecordIdField() ] ) )
+			          as $record )
+			{
+				// Check the conditional logic (if applicable).
+				$connConfig = $this->getConnectionConfig( $connID );
+				if ( $connConfig['condition'] != '' &&
+				     \REDCap::evaluateLogic( $connConfig['condition'],
+				                             $projectID, $record ) !== true )
+				{
+					continue;
+				}
+				// Perform the appropriate logic for the connection type.
+				$connData = $this->getConnectionData( $connID );
+				if ( $connConfig['type'] == 'http' )
+				{
+					$this->performHTTP( $connData, $record, 0 );
+				}
+				elseif ( $connConfig['type'] == 'wsdl' )
+				{
+					$this->performWSDL( $connData, $record, 0 );
+				}
+			}
+		}
+		$_GET['pid'] = $oldContext;
 	}
 
 
@@ -161,6 +233,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Set the connection configuration and data.
 		$this->setProjectSetting( "conn-config-$connID", json_encode( $connConfig ) );
 		$this->setProjectSetting( "conn-data-$connID", json_encode( $connData ) );
+		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		{
+			$this->setProjectSetting( "conn-lastrun-$connID", time() );
+		}
+		else
+		{
+			$this->removeProjectSetting( "conn-lastrun-$connID" );
+		}
 		// Add the report to the list of reports.
 		$listIDs = $this->getProjectSetting( 'conn-list' );
 		if ( $listIDs === null )
@@ -173,7 +253,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 		$listIDs[] = $connID;
 		$this->setProjectSetting( 'conn-list', json_encode( $listIDs ) );
-		$this->updateCronList( $this->getProjectID(), $connID, $connData );
+		$this->updateCronList( $this->getProjectID(), $connID, $connConfig );
 	}
 
 
@@ -184,6 +264,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Remove the connection configuration and data.
 		$this->removeProjectSetting( "conn-config-$connID" );
 		$this->removeProjectSetting( "conn-data-$connID" );
+		$this->removeProjectSetting( "conn-lastrun-$connID" );
 		// Remove the connection from the list of reports.
 		$listIDs = $this->getProjectSetting( 'conn-list' );
 		if ( $listIDs === null )
@@ -576,7 +657,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$body = str_replace( $placeholderName, $placeholderValue, $body );
 		}
 		// Use cURL to perform the HTTP request.
+		$curlCertBundle = $this->getSystemSetting('curl-ca-bundle');
 		$curl = curl_init( $url );
+		if ( $curlCertBundle != '' )
+		{
+			curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
+		}
+		curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
 		curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
 		switch ( $method )
 		{
@@ -781,6 +868,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Set a named database lock (with 20 second timeout) while updating the global cron list.
 		$this->query( "DO GET_LOCK('rc-mod-apiclient-cronlist',20)", [] );
 		$listCrons = $this->getSystemSetting( 'cronlist' );
+		if ( $listCrons === null )
+		{
+			$listCrons = [];
+		}
+		else
+		{
+			$listCrons = json_decode( $listCrons, true );
+		}
 		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
 		{
 			$listCrons["$projectID.$connID"] = $cronDetails;
@@ -789,7 +884,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			unset( $listCrons["$projectID.$connID"] );
 		}
-		$this->setSystemSetting( 'cronlist', $listCrons );
+		$this->setSystemSetting( 'cronlist', json_encode( $listCrons ) );
 		// Release the named database lock.
 		$this->query( "DO RELEASE_LOCK('rc-mod-apiclient-cronlist')", [] );
 	}
@@ -809,6 +904,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Set a named database lock (with 20 second timeout) while updating the global cron list.
 		$this->query( "DO GET_LOCK('rc-mod-apiclient-cronlist',20)", [] );
 		$listCrons = $this->getSystemSetting( 'cronlist' );
+		if ( $listCrons === null )
+		{
+			$listCrons = [];
+		}
+		else
+		{
+			$listCrons = json_decode( $listCrons, true );
+		}
 		// Remove any connections for the current project from the global cron list.
 		foreach ( $listCrons as $cronID => $cronDetails )
 		{
@@ -831,7 +934,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 		}
 		// Update the database and release the named database lock.
-		$this->setSystemSetting( 'cronlist', $listCrons );
+		$this->setSystemSetting( 'cronlist', json_encode( $listCrons ) );
 		$this->query( "DO RELEASE_LOCK('rc-mod-apiclient-cronlist')", [] );
 	}
 
@@ -842,7 +945,18 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	{
 		$this->setProjectSetting( "conn-config-$connID", json_encode( $connConfig ) );
 		$this->setProjectSetting( "conn-data-$connID", json_encode( $connData ) );
-		$this->updateCronList( $this->getProjectID(), $connID, $connData );
+		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		{
+			if ( $this->getProjectSetting( "conn-lastrun-$connID" ) == null )
+			{
+				$this->setProjectSetting( "conn-lastrun-$connID", time() );
+			}
+		}
+		else
+		{
+			$this->removeProjectSetting( "conn-lastrun-$connID" );
+		}
+		$this->updateCronList( $this->getProjectID(), $connID, $connConfig );
 	}
 
 

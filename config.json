@@ -27,6 +27,11 @@
 			"name" : "Allow normal users (non-administators) to configure API connections",
 			"type" : "checkbox",
 			"super-users-only" : true
+		},
+		{
+			"key" : "curl-ca-bundle",
+			"name" : "File path of cURL CA bundle",
+			"type" : "text"
 		}
 	],
 	"project-settings" : [
@@ -40,6 +45,15 @@
 				{ "value" : "D", "name" : "Deny" }
 			],
 			"super-users-only" : true
+		}
+	],
+	"crons" : [
+		{
+			"cron_name" : "cron",
+			"cron_description" : "API Client cron",
+			"method" : "runCron",
+			"cron_frequency" : "600",
+			"cron_max_run_time" : "86400"
 		}
 	]
 }
