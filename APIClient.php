@@ -402,11 +402,21 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$eventID = null;
 		if ( $eventName != '' )
 		{
-			$eventID = \REDCap::getEventIdFromUniqueEvent( $eventName );
+			if ( defined( 'PROJECT_ID' ) )
+			{
+				$eventID = \REDCap::getEventIdFromUniqueEvent( $eventName );
+			}
+			else
+			{
+				$obProj = new \Project( $_GET['pid'] );
+				$eventID = $obProj->getEventIdUsingUniqueEventName( $eventName );
+			}
 		}
 
 		// Get the value for the (event and) field.
-		$data = \REDCap::getData( [ 'return_format' => 'array', 'records' => $recordID,
+		$data = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
+		                                                    ? PROJECT_ID : $_GET['pid'] ),
+		                            'return_format' => 'array', 'records' => $recordID,
 		                            'fields' => $fieldName, 'events' => $eventID,
 		                            'combine_checkbox_values' => true ] );
 		$data = $data[$recordID];
@@ -779,8 +789,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$defaultEventID = array_shift(
 		                        array_keys(
 		                            array_shift(
-		                                \REDCap::getData( [ 'return_format' => 'array',
-		                                                    'fields' => \REDCap::getRecordIdField(),
+		                                \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
+		                                                              ? PROJECT_ID : $_GET['pid'] ),
+		                                                    'return_format' => 'array',
+		                                                    'fields' => $this->getRecordIdField(),
 		                                                    'records' => $recordID ] ) ) ) );
 		// Build the dataset for insert from the input data.
 		foreach ( $inputData as $inputItem )
@@ -795,7 +807,15 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$eventID = $defaultEventID;
 			if ( $inputItem['event'] != '' )
 			{
-				$eventID = \REDCap::getEventIdFromUniqueEvent( $inputItem['event'] );
+				if ( defined( 'PROJECT_ID' ) )
+				{
+					$eventID = \REDCap::getEventIdFromUniqueEvent( $inputItem['event'] );
+				}
+				else
+				{
+					$obProj = new \Project( $_GET['pid'] );
+					$eventID = $obProj->getEventIdUsingUniqueEventName( $inputItem['event'] );
+				}
 			}
 			// Determine the instrument for the field.
 			$instrument = $this->getProject()->getFormForField( $inputItem['field'] );
@@ -819,7 +839,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			else
 			{
 				// Multi-instance data.
-				$totalInstances = \REDCap::getData( [ 'return_format' => 'array',
+				$totalInstances = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
+		                                                              ? PROJECT_ID : $_GET['pid'] ),
+		                                              'return_format' => 'array',
 				                                      'fields' => $inputItem['field'],
 				                                      'records' => $recordID ] );
 				$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
