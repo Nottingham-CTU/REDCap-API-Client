@@ -27,6 +27,13 @@ $connData = $module->getConnectionData( $connID );
 // Handle form submissions.
 if ( ! empty( $_POST ) )
 {
+	// If indicated, delete the connection.
+	if ( isset( $_POST[ 'conn_delete' ] ) )
+	{
+		$module->deleteConnection( $connID );
+		header( 'Location: ' . $module->getUrl( 'connections.php' ) );
+		exit;
+	}
 	// Save data
 	$submitConfig = [];
 	$submitData = [];
@@ -108,10 +115,30 @@ else
 }
 ?>
 </div>
-<p style="font-size:11px">
+<p style="display:flex;justify-content:space-between;width:97%;max-width:97%">
  <a href="<?php echo $module->getUrl( 'connections.php' )
-?>" class="fas fa-arrow-circle-left fs11"> Back to API client connections</a>
+?>" class="fas fa-arrow-circle-left fs12"> Back to API client connections</a>
+<?php
+if ( $connID != '' )
+{
+?>
+ <a href="#" class="fas fa-trash fs12"
+    onclick="$('#delconnform').submit();return false"> Delete connection</a>
+<?php
+}
+?>
 </p>
+<?php
+if ( $connID != '' )
+{
+?>
+<form method="post" id="delconnform"
+      onsubmit="return confirm('Are you sure you want to delete this connection?')">
+ <input type="hidden" name="conn_delete" value="1">
+</form>
+<?php
+}
+?>
 <form method="post" id="connform">
  <table class="mod-apiclient-formtable">
   <tbody>

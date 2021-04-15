@@ -265,6 +265,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$this->removeProjectSetting( "conn-config-$connID" );
 		$this->removeProjectSetting( "conn-data-$connID" );
 		$this->removeProjectSetting( "conn-lastrun-$connID" );
+		$this->updateCronList( $this->getProjectID(), $connID, [ 'active' => false ] );
 		// Remove the connection from the list of reports.
 		$listIDs = $this->getProjectSetting( 'conn-list' );
 		if ( $listIDs === null )
