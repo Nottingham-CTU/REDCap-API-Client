@@ -744,10 +744,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$returnValue = '';
 			switch( $connData['response_type'][$i] )
 			{
-				case 'C':
+				case 'C': // constant value
 					$returnValue = $connData['response_val'][$i];
 					break;
-				case 'R':
+				case 'R': // return value
 					try
 					{
 						$returnValue = $soapResult->{$connData['response_val'][$i]};
@@ -757,10 +757,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 						$returnValue = '[Invalid response name]';
 					}
 					break;
-				case 'S':
+				case 'S': // server date/time
 					$returnValue = date( 'Y-m-d H:i:s' );
 					break;
-				case 'U':
+				case 'U': // UTC date/time
 					$returnValue = gmdate( 'Y-m-d H:i:s' );
 					break;
 			}
