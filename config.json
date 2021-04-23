@@ -1,0 +1,59 @@
+{
+	"name" : "API Client",
+	"namespace" : "Nottingham\\APIClient",
+	"description" : "Interface with external API endpoints using REDCap.",
+	"authors": [
+		{
+			"name": "Richard Dooley",
+			"email": "richard.dooley@nottingham.ac.uk",
+			"institution": "University of Nottingham"
+		}
+	],
+	"permissions" : [
+		"redcap_save_record",
+		"redcap_module_project_enable",
+		"redcap_module_project_disable"
+	],
+	"framework-version" : 6,
+	"compatibility" : { "redcap-version-min" : "10.6.0", "php-version-min" : "7.4.0" },
+	"links" : {
+		"project" : [
+			{ "name" : "API Client", "icon" : "fas fa-laptop-code", "url" : "connections.php" }
+		]
+	},
+	"system-settings" : [
+		{
+			"key" : "allow-normal-users",
+			"name" : "Allow normal users (non-administators) to configure API connections",
+			"type" : "checkbox",
+			"super-users-only" : true
+		},
+		{
+			"key" : "curl-ca-bundle",
+			"name" : "File path of cURL CA bundle",
+			"type" : "text"
+		}
+	],
+	"project-settings" : [
+		{
+			"key" : "allow-normal-users-project",
+			"name" : "Allow normal users (non-administators) to configure API connections",
+			"type" : "radio",
+			"choices" : [
+				{ "value" : "", "name" : "Use system setting" },
+				{ "value" : "A", "name" : "Allow" },
+				{ "value" : "D", "name" : "Deny" }
+			],
+			"super-users-only" : true
+		}
+	],
+	"crons" : [
+		{
+			"cron_name" : "cron",
+			"cron_description" : "API Client cron",
+			"method" : "runCron",
+			"cron_frequency" : "600",
+			"cron_max_run_time" : "86400"
+		}
+	]
+}
