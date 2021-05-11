@@ -73,7 +73,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			// Check the conditional logic (if applicable).
 			if ( $connConfig['condition'] != '' &&
 			     \REDCap::evaluateLogic( $connConfig['condition'], $project_id, $record, $event_id,
-			                             ( $isRepeating ? $repeat_instance : null ),
+			                             ( $isRepeating ? $repeat_instance : 1 ),
 			                             ( $isRepeating ? $instrument : null ) ) !== true )
 			{
 				continue;
@@ -314,8 +314,16 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			       substr( $infoField['text_validation_type_or_show_slider_number'],
 			               0, 8 ) == 'datetime' ) )
 			{
+				$fieldLabel = str_replace( "\r\n", "\n", $infoField['field_label'] );
+				$labelLength = strpos( $fieldLabel, "\n" );
+				if ( $labelLength === false || $labelLength > 30 )
+				{
+					$labelLength = 30;
+				}
+				$fieldLabel = substr( $fieldLabel, 0, $labelLength );
 				$listFields[ $infoField['field_name'] ] =
-					$infoField['field_name'] . ' - ' . $infoField['field_label'];
+					$infoField['field_name'] . ' - ' . $fieldLabel .
+					( $fieldLabel == $infoField['field_label'] ? '' : '...' );
 			}
 		}
 		return $listFields;
@@ -751,6 +759,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					try
 					{
 						$returnValue = $soapResult->{$connData['response_val'][$i]};
+						if ( is_object( $returnValue ) )
+						{
+							$returnValue = json_encode( $returnValue );
+						}
 					}
 					catch ( Exception $e )
 					{
