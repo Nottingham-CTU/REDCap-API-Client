@@ -503,7 +503,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 
 		// If applicable, apply a function to the value.
-		if ( $funcName == 'date' )
+		if ( $funcName == 'date' && $data != '' )
 		{
 			// Convert a date from YYYY-MM-DD to the specified format.
 			$data = gmdate( $funcParams, gmmktime( intval( substr( $data, 11, 2 ) ),
