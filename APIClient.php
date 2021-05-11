@@ -724,8 +724,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			if ( $connData['param_type'][$i] == 'C' ) // constant value
 			{
-				$listParams[ $connData['param_name'][$i] ] =
-					$listParams[ $connData['param_val'][$i] ];
+				$listParams[ $connData['param_name'][$i] ] = $connData['param_val'][$i];
 			}
 			elseif ( $connData['param_type'][$i] == 'F' ) // project field
 			{
