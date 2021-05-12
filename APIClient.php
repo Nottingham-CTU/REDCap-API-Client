@@ -49,7 +49,15 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function redcap_save_record( $project_id, $record, $instrument, $event_id, $group_id = null,
 	                             $survey_hash = null, $response_id = null, $repeat_instance = 1 )
 	{
+		// Check if the submitted form is repeating.
+		$repeatingForms = $this->getRepeatingForms( $event_id );
+		$isRepeating = ( ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null ) ||
+		                 ( count( $repeatingForms ) > 0 &&
+		                   in_array( $instrument, $repeatingForms ) ) );
+		// Get the connections for the project.
 		$listConnections = $this->getConnectionList();
+		// Determine which connections are to be run.
+		$listRunConnections = [];
 		foreach ( $listConnections as $connID => $connConfig )
 		{
 			// Check that the connection is active and triggered on record save.
@@ -65,11 +73,6 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
-			// Check if the submitted form is repeating.
-			$repeatingForms = $this->getRepeatingForms( $event_id );
-			$isRepeating = ( ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null ) ||
-			                 ( count( $repeatingForms ) > 0 &&
-			                   in_array( $instrument, $repeatingForms ) ) );
 			// Check the conditional logic (if applicable).
 			if ( $connConfig['condition'] != '' &&
 			     \REDCap::evaluateLogic( $connConfig['condition'], $project_id, $record, $event_id,
@@ -78,6 +81,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
+			$listRunConnections[ $connID ] = $connConfig;
+		}
+		// Run the connections.
+		foreach ( $listRunConnections as $connID => $connConfig )
+		{
 			// Perform the appropriate logic for the connection type.
 			$connData = $this->getConnectionData( $connID );
 			if ( $connConfig['type'] == 'http' )
