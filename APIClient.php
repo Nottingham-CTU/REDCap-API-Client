@@ -49,6 +49,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function redcap_save_record( $project_id, $record, $instrument, $event_id, $group_id = null,
 	                             $survey_hash = null, $response_id = null, $repeat_instance = 1 )
 	{
+		// This should run after any other modules.
+		if ( $this->delayModuleExecution() )
+		{
+			return;
+		}
 		// Check if the submitted form is repeating.
 		$repeatingForms = $this->getRepeatingForms( $event_id );
 		$isRepeating = ( ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null ) ||
