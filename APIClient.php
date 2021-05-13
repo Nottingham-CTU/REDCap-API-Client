@@ -495,7 +495,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					$selectedInstance = $instanceNum;
 					if ( $selectedInstance < 1 )
 					{
-						$selectedInstance = count( $repeatInstances ) - $selectedInstance;
+						$selectedInstance = count( $repeatInstances ) + $selectedInstance;
 						if ( $selectedInstance < 1 )
 						{
 							$selectedInstance = 1;
@@ -662,7 +662,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
-			$useInstance = ( $connData['ph_inst'] == '' ? $defaultInstance : $connData['ph_inst'] );
+			$useInstance =
+				( $connData['ph_inst'][$i] === '' ? $defaultInstance : $connData['ph_inst'][$i] );
 			$placeholderValue =
 				$this->getProjectFieldValue( $recordID, ( $connData['ph_event'][$i] ?? '' ),
 				                             $connData['ph_field'][$i], $useInstance,
@@ -742,7 +743,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			elseif ( $connData['param_type'][$i] == 'F' ) // project field
 			{
 				$useInstance =
-					( $connData['param_inst'] == '' ? $defaultInstance : $connData['param_inst'] );
+					( $connData['param_inst'][$i] === '' ? $defaultInstance
+					                                     : $connData['param_inst'][$i] );
 				$listParams[ $connData['param_name'][$i] ] =
 					$this->getProjectFieldValue( $recordID, ( $connData['param_event'][$i] ?? '' ),
 					                             $connData['param_field'][$i], $useInstance,
@@ -790,7 +792,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			$returnItem = [ 'event' => ( $connData['response_event'][$i] ?? '' ),
 			                'field' => $connData['response_field'][$i],
-			                'instance' => ( $connData['response_inst'][$i] == ''
+			                'instance' => ( $connData['response_inst'][$i] === ''
 			                                ? $defaultInstance : $connData['response_inst'][$i] ),
 			                'value' => $returnValue ];
 			$soapReturn[] = $returnItem;
@@ -865,16 +867,15 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				// Multi-instance data.
 				$totalInstances = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
-		                                                              ? PROJECT_ID : $_GET['pid'] ),
-		                                              'return_format' => 'array',
-				                                      'fields' => $inputItem['field'],
+				                                                      ? PROJECT_ID : $_GET['pid'] ),
+				                                      'return_format' => 'array',
 				                                      'records' => $recordID ] );
 				$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
 				                                                [ $eventID ][ $repeatInstrument ] );
 				$selectedInstance = $inputItem['instance'];
 				if ( $selectedInstance < 1 )
 				{
-					$selectedInstance = $totalInstances - $selectedInstance;
+					$selectedInstance = $totalInstances + $selectedInstance;
 					if ( $selectedInstance < 1 )
 					{
 						$selectedInstance = 1;
