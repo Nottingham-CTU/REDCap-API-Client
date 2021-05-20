@@ -49,7 +49,20 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function redcap_save_record( $project_id, $record, $instrument, $event_id, $group_id = null,
 	                             $survey_hash = null, $response_id = null, $repeat_instance = 1 )
 	{
+		// This should run after any other modules.
+		if ( $this->delayModuleExecution() )
+		{
+			return;
+		}
+		// Check if the submitted form is repeating.
+		$repeatingForms = $this->getRepeatingForms( $event_id );
+		$isRepeating = ( ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null ) ||
+		                 ( count( $repeatingForms ) > 0 &&
+		                   in_array( $instrument, $repeatingForms ) ) );
+		// Get the connections for the project.
 		$listConnections = $this->getConnectionList();
+		// Determine which connections are to be run.
+		$listRunConnections = [];
 		foreach ( $listConnections as $connID => $connConfig )
 		{
 			// Check that the connection is active and triggered on record save.
@@ -65,11 +78,6 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
-			// Check if the submitted form is repeating.
-			$repeatingForms = $this->getRepeatingForms( $event_id );
-			$isRepeating = ( ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null ) ||
-			                 ( count( $repeatingForms ) > 0 &&
-			                   in_array( $instrument, $repeatingForms ) ) );
 			// Check the conditional logic (if applicable).
 			if ( $connConfig['condition'] != '' &&
 			     \REDCap::evaluateLogic( $connConfig['condition'], $project_id, $record, $event_id,
@@ -78,6 +86,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
+			$listRunConnections[ $connID ] = $connConfig;
+		}
+		// Run the connections.
+		foreach ( $listRunConnections as $connID => $connConfig )
+		{
 			// Perform the appropriate logic for the connection type.
 			$connData = $this->getConnectionData( $connID );
 			if ( $connConfig['type'] == 'http' )
@@ -314,16 +327,16 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			       substr( $infoField['text_validation_type_or_show_slider_number'],
 			               0, 8 ) == 'datetime' ) )
 			{
-				$fieldLabel = str_replace( "\r\n", "\n", $infoField['field_label'] );
-				$labelLength = strpos( $fieldLabel, "\n" );
-				if ( $labelLength === false || $labelLength > 30 )
+				$fieldLabel = str_replace( ["\r\n", "\n"], ' ', $infoField['field_label'] );
+				$fieldLabel = trim( preg_replace( '/\\<[^<>]+\\>/', ' ', $fieldLabel ) );
+				if ( strlen( $fieldLabel ) > 35 )
 				{
-					$labelLength = 30;
+					$fieldLabel =
+						substr( $fieldLabel, 0, 25 ) . ' ... ' . substr( $fieldLabel, -8 );
 				}
-				$fieldLabel = substr( $fieldLabel, 0, $labelLength );
+
 				$listFields[ $infoField['field_name'] ] =
-					$infoField['field_name'] . ' - ' . $fieldLabel .
-					( $fieldLabel == $infoField['field_label'] ? '' : '...' );
+					$infoField['field_name'] . ' - ' . $fieldLabel;
 			}
 		}
 		return $listFields;
@@ -482,7 +495,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					$selectedInstance = $instanceNum;
 					if ( $selectedInstance < 1 )
 					{
-						$selectedInstance = count( $repeatInstances ) - $selectedInstance;
+						$selectedInstance = count( $repeatInstances ) + $selectedInstance;
 						if ( $selectedInstance < 1 )
 						{
 							$selectedInstance = 1;
@@ -503,7 +516,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 
 		// If applicable, apply a function to the value.
-		if ( $funcName == 'date' )
+		if ( $funcName == 'date' && $data != '' )
 		{
 			// Convert a date from YYYY-MM-DD to the specified format.
 			$data = gmdate( $funcParams, gmmktime( intval( substr( $data, 11, 2 ) ),
@@ -649,7 +662,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				continue;
 			}
-			$useInstance = ( $connData['ph_inst'] == '' ? $defaultInstance : $connData['ph_inst'] );
+			$useInstance =
+				( $connData['ph_inst'][$i] === '' ? $defaultInstance : $connData['ph_inst'][$i] );
 			$placeholderValue =
 				$this->getProjectFieldValue( $recordID, ( $connData['ph_event'][$i] ?? '' ),
 				                             $connData['ph_field'][$i], $useInstance,
@@ -724,13 +738,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			if ( $connData['param_type'][$i] == 'C' ) // constant value
 			{
-				$listParams[ $connData['param_name'][$i] ] =
-					$listParams[ $connData['param_val'][$i] ];
+				$listParams[ $connData['param_name'][$i] ] = $connData['param_val'][$i];
 			}
 			elseif ( $connData['param_type'][$i] == 'F' ) // project field
 			{
 				$useInstance =
-					( $connData['param_inst'] == '' ? $defaultInstance : $connData['param_inst'] );
+					( $connData['param_inst'][$i] === '' ? $defaultInstance
+					                                     : $connData['param_inst'][$i] );
 				$listParams[ $connData['param_name'][$i] ] =
 					$this->getProjectFieldValue( $recordID, ( $connData['param_event'][$i] ?? '' ),
 					                             $connData['param_field'][$i], $useInstance,
@@ -778,7 +792,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			$returnItem = [ 'event' => ( $connData['response_event'][$i] ?? '' ),
 			                'field' => $connData['response_field'][$i],
-			                'instance' => ( $connData['response_inst'][$i] == ''
+			                'instance' => ( $connData['response_inst'][$i] === ''
 			                                ? $defaultInstance : $connData['response_inst'][$i] ),
 			                'value' => $returnValue ];
 			$soapReturn[] = $returnItem;
@@ -853,16 +867,15 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				// Multi-instance data.
 				$totalInstances = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
-		                                                              ? PROJECT_ID : $_GET['pid'] ),
-		                                              'return_format' => 'array',
-				                                      'fields' => $inputItem['field'],
+				                                                      ? PROJECT_ID : $_GET['pid'] ),
+				                                      'return_format' => 'array',
 				                                      'records' => $recordID ] );
 				$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
 				                                                [ $eventID ][ $repeatInstrument ] );
 				$selectedInstance = $inputItem['instance'];
 				if ( $selectedInstance < 1 )
 				{
-					$selectedInstance = $totalInstances - $selectedInstance;
+					$selectedInstance = $totalInstances + $selectedInstance;
 					if ( $selectedInstance < 1 )
 					{
 						$selectedInstance = 1;
