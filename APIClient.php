@@ -718,6 +718,85 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		curl_setopt( $curl, CURLOPT_HTTPHEADER,
 		             explode( "\n", str_replace( "\r\n", "\n", $headers ) ) );
 		$httpResult = curl_exec( $curl );
+		// TODO: Consider checking HTTP status.
+		// Stop here if the response format is 'none'.
+		if ( ( $connData['response_format'] ?? '' ) == '' )
+		{
+			return;
+		}
+		// Prepare the return values (if any).
+		$httpReturn = [];
+		for ( $i = 0; $i < count( $connData['response_field'] ); $i++ )
+		{
+			if ( $connData['response_field'][$i] == '' )
+			{
+				continue;
+			}
+			$returnValue = '';
+			switch( $connData['response_type'][$i] )
+			{
+				case 'C': // constant value
+					$returnValue = $connData['response_val'][$i];
+					break;
+				case 'R': // response value
+					if ( $connData['response_format'] == 'J' ) // JSON
+					{
+						// TODO: Implement JSON value extraction.
+					}
+					elseif ( $connData['response_format'] == 'X' ) // XML
+					{
+						try
+						{
+							$httpResultDOM = new DOMDocument();
+							$httpResultDOM->loadXML( $httpResult );
+							$httpResultXPath = new DOMXPath( $httpResultDOM );
+							$httpResultItem =
+								$httpResultXPath->evaluate( $connData['response_val'][$i] );
+							if ( $httpResultItem === false )
+							{
+								$returnValue = '[Invalid response path]';
+							}
+							elseif ( $httpResultItem instanceof DOMNodeList )
+							{
+								if ( $httpResultItem->length > 0 )
+								{
+									$returnValue = $httpResultItem->item(0)->textContent;
+								}
+								else
+								{
+									$returnValue = '[Invalid response path]';
+								}
+							}
+							else
+							{
+								$returnValue = strval( $httpResultItem );
+							}
+						}
+						catch ( Exception $e )
+						{
+							$returnValue = '[Invalid response path]';
+						}
+					}
+					break;
+				case 'S': // server date/time
+					$returnValue = date( 'Y-m-d H:i:s' );
+					break;
+				case 'U': // UTC date/time
+					$returnValue = gmdate( 'Y-m-d H:i:s' );
+					break;
+			}
+			$returnItem = [ 'event' => ( $connData['response_event'][$i] ?? '' ),
+			                'field' => $connData['response_field'][$i],
+			                'instance' => ( $connData['response_inst'][$i] === ''
+			                                ? $defaultInstance : $connData['response_inst'][$i] ),
+			                'value' => $returnValue ];
+			$httpReturn[] = $returnItem;
+		}
+		// Write the return values to the record.
+		if ( count( $httpReturn ) > 0 )
+		{
+			$this->setProjectFieldValues( $recordID, $httpReturn );
+		}
 	}
 
 
