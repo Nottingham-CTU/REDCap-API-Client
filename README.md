@@ -112,7 +112,11 @@ parameters as required.
 
 ### Response Fields
 
-These fields only apply to SOAP (WSDL) connections.
+*For HTTP/REST connections, you will need to specify the* response format, *which can be one of:*
+* *None/Ignore* &ndash; The request is sent, but the response (if any) is ignored and response
+  fields are not used.
+* *JSON* &ndash; The response is treated as JSON.
+* *XML* &ndash; The response is treated as XML.
 
 Specify the fields of the project record into which response values are to be stored. You can
 specify as many response fields as required.
@@ -122,12 +126,22 @@ specify as many response fields as required.
   used.
 * **Response Type** &ndash; The type of response.
   * *Constant value* will store a specific value into the field.
-  * *Return value* will store a named return value from the API request into the field.
+  * *Return/response value* will store a named return/response value from the API request into the
+    field.
   * *Server date/time* will store the date and time the connection took place, in the server's time
-  zone
-  * *UTC date/time* will store the date and time the connection took place, in the UTC time zone
-* **Response Value** &ndash; If *constant value* is used, enter the value here. If *return value*
-  is used, enter the name of the return value here.
+    zone.
+  * *UTC date/time* will store the date and time the connection took place, in the UTC time zone.
+* **Response Value** &ndash; If *constant value* is used, enter the value here. If *return/response
+  value* is used, enter the name of the return/response value here.
+
+If you are using a return/response value, the format of the value name will depend on the connection
+type and the response format (if applicable).
+
+* HTTP/REST - JSON: Use the JSON path to the value, as used by the
+  [MySQL JSON_EXTRACT() function](https://dev.mysql.com/doc/refman/5.7/en/json-search-functions.html#function_json-extract).
+* HTTP/REST - XML: Use the [XPath](https://en.wikipedia.org/wiki/XPath) to the value.
+* SOAP (WSDL): Use the name of the return value provided in the SOAP response.
+
 
 ## Field Interpretation
 

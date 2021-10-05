@@ -718,9 +718,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		curl_setopt( $curl, CURLOPT_HTTPHEADER,
 		             explode( "\n", str_replace( "\r\n", "\n", $headers ) ) );
 		$httpResult = curl_exec( $curl );
-		// TODO: Consider checking HTTP status.
-		// Stop here if the response format is 'none'.
-		if ( ( $connData['response_format'] ?? '' ) == '' )
+		// Stop here if the response format is 'none', or if the HTTP response status is not 200.
+		if ( ( $connData['response_format'] ?? '' ) == '' ||
+		     curl_getinfo( $curl, CURLINFO_HTTP_CODE ) != 200 )
 		{
 			return;
 		}
@@ -741,7 +741,32 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				case 'R': // response value
 					if ( $connData['response_format'] == 'J' ) // JSON
 					{
-						// TODO: Implement JSON value extraction.
+						$httpProcConn = $GLOBALS['conn'];
+						$httpProcQuery =
+							$httpProcConn->prepare( 'SELECT JSON_UNQUOTE(JSON_EXTRACT(?,?))' );
+						$httpProcQuery->bind_param( 'ss', $httpResult, $connData['response_val'] );
+						$httpProcQuery->execute();
+						$httpProcResult = $httpProcQuery->getResult();
+						if ( $httpProcResult === false )
+						{
+							$returnValue = '[Invalid response path]';
+						}
+						else
+						{
+							$returnValue = $httpProcResult->fetch_row()[0];
+							if ( $returnValue === null )
+							{
+								$returnValue = '';
+							}
+							elseif ( $returnValue === true )
+							{
+								$returnValue = '1';
+							}
+							elseif ( $returnValue === false )
+							{
+								$returnValue = '0';
+							}
+						}
 					}
 					elseif ( $connData['response_format'] == 'X' ) // XML
 					{
