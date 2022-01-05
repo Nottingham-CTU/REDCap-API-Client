@@ -296,6 +296,27 @@ echo $connData['body'] ?? ''; ?></textarea>
     <td></td>
     <td><a href="#" class="fas fa-plus-circle fs12" id="http_add_ph"> Add placeholder</a></td>
    </tr>
+   <tr><th colspan="2">Response Fields</th></tr>
+   <tr>
+    <td>Response Format</td>
+    <td>
+     <select name="http_response_format">
+      <option value="">None / Ignore</option>
+      <option value="J"<?php echo $connConfig['type'] == 'http' &&
+                                  $connData['response_format'] == 'J'
+                                  ? ' selected' : ''; ?>>JSON</option>
+      <option value="X"<?php echo $connConfig['type'] == 'http' &&
+                                  $connData['response_format'] == 'X'
+                                  ? ' selected' : ''; ?>>XML</option>
+     </select>
+    </td>
+   </tr>
+   <tr>
+    <td></td>
+    <td>
+     <a href="#" class="fas fa-plus-circle fs12" id="http_add_response"> Add response field</a>
+    </td>
+   </tr>
   </tbody>
   <tbody class="conn_sec conn_sec_wsdl">
    <tr><th colspan="2">SOAP (WSDL) Endpoint</th></tr>
@@ -392,6 +413,31 @@ echo $connData['body'] ?? ''; ?></textarea>
      vNew.insertAfter( vPrev )
      return false
    })
+   $('#http_add_response').click( function()
+   {
+     var vPrev = $('#http_add_response').parent().parent().prev()
+     var vNum = vPrev.data('index')
+     if ( vNum == undefined )
+     {
+       vNum = 0
+     }
+     vNum++
+     var vNew = $('<tr data-index="' + vNum + '"><td>Response Field ' + vNum + '</td><td>' +
+                  'Field:<br><?php fieldSelector('http_response', false); ?><br>Type:<br>' +
+                  '<select name="http_response_type[]"><option value="C">Constant value</option>' +
+                  '<option value="R">Response value</option>' +
+                  '<option value="S">Server date/time</option>' +
+                  '<option value="U">UTC date/time</option></select><br><span>Value:<br>' +
+                  '<input type="text" name="http_response_val[]"></span></td></tr>')
+     //vNew.find('span').slice(1).css('display','none')
+     vNew.find('select[name="http_response_type[]"]').change(function(){
+       var vOption = vNew.find('select[name="http_response_type[]"]').val()
+       var vSpan = vNew.find('span')
+       vSpan.eq(0).css('display', ( vOption == 'C' || vOption == 'R' ) ? '' : 'none')
+     })
+     vNew.insertAfter( vPrev )
+     return false
+   })
    $('#wsdl_add_param').click( function()
    {
      var vPrev = $('#wsdl_add_param').parent().parent().prev()
@@ -463,6 +509,23 @@ if ( $connConfig['type'] == 'http' )
      $('tr[data-index="'+(i+1)+'"] input[name="http_ph_func_args[]"]').val(vPlaceholders['args'][i])
      $('tr[data-index="'+(i+1)+'"] select[name="http_ph_format[]"]').val(vPlaceholders['format'][i])
    }
+<?php
+	$resps = [ 'event' => $connData['response_event'] ?? '', 'field' => $connData['response_field'] ?? '',
+	           'inst' => $connData['response_inst'] ?? '', 'name' => $connData['response_name'] ?? '',
+	           'type' => $connData['response_type'] ?? '', 'val' => $connData['response_val'] ?? '' ];
+?>
+   var vResps = JSON.parse( '<?php echo addslashes( json_encode( $resps ) ); ?>' )
+   for ( var i = 0; i < vResps['field'].length; i++ )
+   {
+     $('#http_add_response').click()
+     $('tr[data-index="'+(i+1)+'"] select[name="http_response_event[]"]').val(vResps['event'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="http_response_field[]"]').val(vResps['field'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="http_response_inst[]"]').val(vResps['inst'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="http_response_name[]"]').val(vResps['name'][i])
+     $('tr[data-index="'+(i+1)+'"] select[name="http_response_type[]"]').val(vResps['type'][i])
+     $('tr[data-index="'+(i+1)+'"] input[name="http_response_val[]"]').val(vResps['val'][i])
+   }
+   $('select[name="http_response_type[]"]').change()
 <?php
 }
 elseif ( $connConfig['type'] == 'wsdl' )
