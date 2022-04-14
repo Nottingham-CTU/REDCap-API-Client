@@ -20,7 +20,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 	// As the REDCap built-in module configuration only contains options for administrators, hide
 	// this configuration from all non-administrators.
-	function redcap_module_configure_button_display( $project_id )
+	function redcap_module_configure_button_display()
 	{
 		return $this->framework->getUser()->isSuperUser() ? true : null;
 	}

@@ -74,12 +74,14 @@ if ( ! empty( $_POST ) )
 function fieldSelector( $name, $incFunc = true )
 {
 	global $module;
+	ob_start();
 	if ( REDCap::isLongitudinal() )
 	{
 		$module->outputEventDropdown( $name . '_event[]', '' );
 		echo ' ';
 	}
 	$module->outputFieldDropdown( $name . '_field[]', '' );
+	echo addslashes( ob_get_clean() );
 	echo ' <input type="text" name="', htmlspecialchars( $name ), '_inst[]"',
 		 ' pattern="^(0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
 	if ( $incFunc )
@@ -492,10 +494,10 @@ echo $connData['body'] ?? ''; ?></textarea>
 <?php
 if ( $connConfig['type'] == 'http' )
 {
-	$placeholders = [ 'name' => $connData['ph_name'], 'event' => $connData['ph_event'],
-	                  'field' => $connData['ph_field'], 'inst' => $connData['ph_inst'],
-	                  'func' => $connData['ph_func'], 'args' => $connData['ph_func_args'],
-	                  'format' => $connData['ph_format'] ];
+	$placeholders = [ 'name' => $connData['ph_name'] ?? '', 'event' => $connData['ph_event'] ?? '',
+	                  'field' => $connData['ph_field'] ?? '', 'inst' => $connData['ph_inst'] ?? '',
+	                  'func' => $connData['ph_func'] ?? '', 'args' => $connData['ph_func_args'] ?? '',
+	                  'format' => $connData['ph_format'] ?? '' ];
 ?>
    var vPlaceholders = JSON.parse( '<?php echo addslashes( json_encode( $placeholders ) ); ?>' )
    for ( var i = 0; i < vPlaceholders['name'].length; i++ )
