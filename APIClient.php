@@ -20,27 +20,95 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 	// As the REDCap built-in module configuration only contains options for administrators, hide
 	// this configuration from all non-administrators.
-	function redcap_module_configure_button_display( $project_id )
+	function redcap_module_configure_button_display()
 	{
-		return $this->framework->getUser()->isSuperUser() ? true : null;
+		return $this->getUser()->isSuperUser() ? true : null;
 	}
 
 
 
-	// When the module is enabled on a project, check if there are any previously configured
-	// scheduled connections to add to the global cron list.
-	function redcap_module_project_enable( $version, $project_id )
+	// Function run when the module is enabled/updated.
+	function redcap_module_system_enable( $version )
 	{
+		// Convert old connections data to v1.1.1+ format.
+		foreach ( $this->getProjectsWithModuleEnabled() as $projectID )
+		{
+			$settings = $this->getProjectSettings( $projectID );
+			foreach ( $settings as $settingKey => $settingValue )
+			{
+				if ( in_array( $settingKey, ['enabled', 'allow-normal-users-project'] ) )
+				{
+					continue;
+				}
+				$this->setSystemSetting( "p$projectID-$settingKey", $settingValue );
+				$this->removeProjectSetting( $settingKey, $projectID );
+			}
+		}
+	}
+
+
+
+	// When the module is enabled on a project, move the settings to system settings to protect them
+	// from export/import by unauthorised users, and check if there are any previously configured
+	// scheduled connections to add to the global cron list.
+	function redcap_module_project_enable( $version, $projectID )
+	{
+		$listConns = $this->getProjectSetting( 'conn-list', $projectID );
+		if ( $listConns != '' )
+		{
+			$this->setSystemSetting( "p$projectID-conn-list", $listConns );
+			$listConns = json_decode( $listConns, true );
+			foreach ( $listConns as $connName )
+			{
+				$this->setSystemSetting( "p$projectID-conn-config-$connName",
+				                         $this->getProjectSetting( "conn-config-$connName", $projectID ) );
+				$this->setSystemSetting( "p$projectID-conn-data-$connName",
+				                         $this->getProjectSetting( "conn-data-$connName", $projectID ) );
+				$this->removeProjectSetting( "conn-config-$connName", $projectID );
+				$this->removeProjectSetting( "conn-data-$connName", $projectID );
+				$lastRun = $this->getProjectSetting( "conn-lastrun-$connID", $projectID );
+				if ( $lastRun != '' )
+				{
+					$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", $lastRun );
+					$this->removeProjectSetting( "conn-lastrun-$connID", $projectID );
+				}
+			}
+			$this->removeProjectSetting( 'conn-list', $projectID );
+		}
 		$this->updateCronListAllProjectConns();
 	}
 
 
 
-	// When the module is disabled on a project, remove all the scheduled connections from the
-	// global cron list.
-	function redcap_module_project_disable( $version, $project_id )
+	// When the module is disabled on a project, move the settings from system settings to project
+	// settings, and remove all the scheduled connections from the global cron list.
+	function redcap_module_project_disable( $version, $projectID )
 	{
 		$this->updateCronListAllProjectConns( true );
+		$listConns = $this->getSystemSetting( "p$projectID-conn-list" );
+		if ( $listConns != '' )
+		{
+			$this->setProjectSetting( 'conn-list', $listConns, $projectID );
+			$listConns = json_decode( $listConns, true );
+			foreach ( $listConns as $connName )
+			{
+				$this->setProjectSetting( "conn-config-$connName",
+				                          $this->getSystemSetting( "p$projectID-conn-config-$connName" ),
+				                          $projectID );
+				$this->setProjectSetting( "conn-data-$connName",
+				                          $this->getSystemSetting( "p$projectID-conn-data-$connName" ),
+				                          $projectID );
+				$this->removeSystemSetting( "p$projectID-conn-config-$connName" );
+				$this->removeSystemSetting( "p$projectID-conn-data-$connName" );
+				$lastRun = $this->getSystemSetting( "p$projectID-conn-lastrun-$connID" );
+				if ( $lastRun != '' )
+				{
+					$this->setProjectSetting( "conn-lastrun-$connID", $lastRun, $projectID );
+					$this->removeSystemSetting( "p$projectID-conn-lastrun-$connID" );
+				}
+			}
+			$this->removeSystemSetting( "p$projectID-conn-list" );
+		}
 	}
 
 
@@ -150,11 +218,12 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			while ( ! $isMatch && $testTime > $execTime - ( 86400 * 7 ) );
 			// If there is not a match, or if the most recent matching run time is equal or
 			// prior to the last run time, proceed to the next cron item.
-			if ( ! $isMatch || $testTime <= $this->getProjectSetting( "conn-lastrun-$connID" ) )
+			if ( ! $isMatch ||
+			     $testTime <= $this->getSystemSetting( "p$projectID-conn-lastrun-$connID" ) )
 			{
 				continue;
 			}
-			$this->setProjectSetting( "conn-lastrun-$connID", $execTime );
+			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", $execTime );
 			// For each record...
 			foreach ( array_keys( \REDCap::getData( [ 'project_id' => $projectID,
 			                                          'return_format' => 'array',
@@ -190,7 +259,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function canEditConnections()
 	{
 		// Administrators can always edit API connections.
-		if ( $this->framework->getUser()->isSuperUser() )
+		if ( $this->getUser()->isSuperUser() )
 		{
 			return true;
 		}
@@ -199,7 +268,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$canEditPr = $this->getProjectSetting( 'allow-normal-users-project' );
 		$canEditSys = $this->getSystemSetting( 'allow-normal-users' );
 		$canEdit = $canEditPr == 'A' || ( $canEditPr != 'D' && $canEditSys );
-		$userRights = $this->framework->getUser()->getRights();
+		$userRights = $this->getUser()->getRights();
 		// Don't allow access by non-administrators without user rights.
 		// (in practice, such users probably cannot access the project).
 		if ( $userRights === null )
@@ -220,9 +289,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Add a new connection, with the specified configuration and data.
 	function addConnection( $connConfig, $connData )
 	{
+		$projectID = $this->getProjectID();
 		// Generate a new connection ID.
 		$connID = '';
-		$listIDs = $this->getProjectSetting( 'conn-list' );
+		$listIDs = $this->getSystemSetting( "p$projectID-conn-list" );
 		if ( $listIDs === null )
 		{
 			$listIDs = [];
@@ -244,18 +314,18 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 		}
 		// Set the connection configuration and data.
-		$this->setProjectSetting( "conn-config-$connID", json_encode( $connConfig ) );
-		$this->setProjectSetting( "conn-data-$connID", json_encode( $connData ) );
+		$this->setSystemSetting( "p$projectID-conn-config-$connID", json_encode( $connConfig ) );
+		$this->setSystemSetting( "p$projectID-conn-data-$connID", json_encode( $connData ) );
 		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
 		{
-			$this->setProjectSetting( "conn-lastrun-$connID", time() );
+			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", time() );
 		}
 		else
 		{
-			$this->removeProjectSetting( "conn-lastrun-$connID" );
+			$this->removeSystemSetting( "p$projectID-conn-lastrun-$connID" );
 		}
 		// Add the report to the list of reports.
-		$listIDs = $this->getProjectSetting( 'conn-list' );
+		$listIDs = $this->getSystemSetting( "p$projectID-conn-list" );
 		if ( $listIDs === null )
 		{
 			$listIDs = [];
@@ -265,7 +335,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$listIDs = json_decode( $listIDs, true );
 		}
 		$listIDs[] = $connID;
-		$this->setProjectSetting( 'conn-list', json_encode( $listIDs ) );
+		$this->setSystemSetting( "p$projectID-conn-list", json_encode( $listIDs ) );
 		$this->updateCronList( $this->getProjectID(), $connID, $connConfig );
 	}
 
@@ -274,13 +344,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Delete the specified connection.
 	function deleteConnection( $connID )
 	{
+		$projectID = $this->getProjectID();
 		// Remove the connection configuration and data.
-		$this->removeProjectSetting( "conn-config-$connID" );
-		$this->removeProjectSetting( "conn-data-$connID" );
-		$this->removeProjectSetting( "conn-lastrun-$connID" );
+		$this->removeSystemSetting( "p$projectID-conn-config-$connID" );
+		$this->removeSystemSetting( "p$projectID-conn-data-$connID" );
+		$this->removeSystemSetting( "p$projectID-conn-lastrun-$connID" );
 		$this->updateCronList( $this->getProjectID(), $connID, [ 'active' => false ] );
 		// Remove the connection from the list of reports.
-		$listIDs = $this->getProjectSetting( 'conn-list' );
+		$listIDs = $this->getSystemSetting( "p$projectID-conn-list" );
 		if ( $listIDs === null )
 		{
 			return;
@@ -290,7 +361,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			unset( $listIDs[$k] );
 		}
-		$this->setProjectSetting( 'conn-list', json_encode( $listIDs ) );
+		$this->setSystemSetting( "p$projectID-conn-list", json_encode( $listIDs ) );
 	}
 
 
@@ -348,7 +419,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Optionally specify the configuration option name, otherwise all options are returned.
 	function getConnectionConfig( $connID, $configName = null )
 	{
-		$config = $this->getProjectSetting( "conn-config-$connID" );
+		$projectID = $this->getProjectID();
+		$config = $this->getSystemSetting( "p$projectID-conn-config-$connID" );
 		if ( $config !== null )
 		{
 			$config = json_decode( $config, true );
@@ -372,7 +444,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Get the connection definition data for the specified connection.
 	function getConnectionData( $connID )
 	{
-		$data = $this->getProjectSetting( "conn-data-$connID" );
+		$projectID = $this->getProjectID();
+		$data = $this->getSystemSetting( "p$projectID-conn-data-$connID" );
 		if ( $data !== null )
 		{
 			$data = json_decode( $data, true );
@@ -385,7 +458,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Gets the list of connections, with the configuration data for each connection.
 	function getConnectionList()
 	{
-		$listIDs = $this->getProjectSetting( 'conn-list' );
+		$projectID = $this->getProjectID();
+		$listIDs = $this->getSystemSetting( "p$projectID-conn-list" );
 		if ( $listIDs === null )
 		{
 			return [];
@@ -535,7 +609,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Get the role name of the current user.
 	function getUserRole()
 	{
-		$userRights = $this->framework->getUser()->getRights();
+		$userRights = $this->getUser()->getRights();
 		if ( $userRights === null )
 		{
 			return null;
@@ -1095,20 +1169,21 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Updates the configuration and data for the connection.
 	function updateConnection( $connID, $connConfig, $connData )
 	{
-		$this->setProjectSetting( "conn-config-$connID", json_encode( $connConfig ) );
-		$this->setProjectSetting( "conn-data-$connID", json_encode( $connData ) );
+		$projectID = $this->getProjectID();
+		$this->setSystemSetting( "p$projectID-conn-config-$connID", json_encode( $connConfig ) );
+		$this->setSystemSetting( "p$projectID-conn-data-$connID", json_encode( $connData ) );
 		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
 		{
-			if ( $this->getProjectSetting( "conn-lastrun-$connID" ) == null )
+			if ( $this->getSystemSetting( "p$projectIDconn-lastrun-$connID" ) == null )
 			{
-				$this->setProjectSetting( "conn-lastrun-$connID", time() );
+				$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", time() );
 			}
 		}
 		else
 		{
-			$this->removeProjectSetting( "conn-lastrun-$connID" );
+			$this->removeSystemSetting( "p$projectID-conn-lastrun-$connID" );
 		}
-		$this->updateCronList( $this->getProjectID(), $connID, $connConfig );
+		$this->updateCronList( $projectID, $connID, $connConfig );
 	}
 
 
