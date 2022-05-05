@@ -730,6 +730,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$body = $connData['body'];
 		// Get the placeholder name/value pairs.
 		$listPlaceholders = [];
+		if ( ! isset( $connData['ph_name'] ) || ! is_array( $connData['ph_name'] ) )
+		{
+			$connData['ph_name'] = [];
+		}
 		for ( $i = 0; $i < count( $connData['ph_name'] ); $i++ )
 		{
 			if ( $connData['ph_name'][$i] == '' )
@@ -800,6 +804,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 		// Prepare the return values (if any).
 		$httpReturn = [];
+		if ( ! isset( $connData['response_field'] ) || ! is_array( $connData['response_field'] ) )
+		{
+			$connData['response_field'] = [];
+		}
 		for ( $i = 0; $i < count( $connData['response_field'] ); $i++ )
 		{
 			if ( $connData['response_field'][$i] == '' )
@@ -818,12 +826,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 						$httpProcConn = $GLOBALS['conn'];
 						$httpProcQuery =
 							$httpProcConn->prepare( 'SELECT JSON_UNQUOTE(JSON_EXTRACT(?,?))' );
-						$httpProcQuery->bind_param( 'ss', $httpResult, $connData['response_val'] );
+						$httpProcQuery->bind_param( 'ss', $httpResult,
+						                            $connData['response_val'][$i] );
 						$httpProcQuery->execute();
-						$httpProcResult = $httpProcQuery->getResult();
+						$httpProcResult = $httpProcQuery->get_result();
 						if ( $httpProcResult === false )
 						{
-							$returnValue = '[Invalid response path]';
+							$returnValue = ''; // invalid response path, return empty string
 						}
 						else
 						{
@@ -846,16 +855,16 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					{
 						try
 						{
-							$httpResultDOM = new DOMDocument();
+							$httpResultDOM = new \DOMDocument();
 							$httpResultDOM->loadXML( $httpResult );
-							$httpResultXPath = new DOMXPath( $httpResultDOM );
+							$httpResultXPath = new \DOMXPath( $httpResultDOM );
 							$httpResultItem =
 								$httpResultXPath->evaluate( $connData['response_val'][$i] );
 							if ( $httpResultItem === false )
 							{
-								$returnValue = '[Invalid response path]';
+								$returnValue = ''; // invalid response path, return empty string
 							}
-							elseif ( $httpResultItem instanceof DOMNodeList )
+							elseif ( $httpResultItem instanceof \DOMNodeList )
 							{
 								if ( $httpResultItem->length > 0 )
 								{
@@ -863,7 +872,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								}
 								else
 								{
-									$returnValue = '[Invalid response path]';
+									$returnValue = ''; // invalid response path, return empty string
 								}
 							}
 							else
@@ -871,9 +880,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								$returnValue = strval( $httpResultItem );
 							}
 						}
-						catch ( Exception $e )
+						catch ( \Exception $e )
 						{
-							$returnValue = '[Invalid response path]';
+							$returnValue = ''; // invalid response path, return empty string
 						}
 					}
 					break;
@@ -908,6 +917,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$function = $connData['function'];
 		// Get the SOAP parameter names and values.
 		$listParams = [];
+		if ( ! isset( $connData['param_name'] ) || ! is_array( $connData['param_name'] ) )
+		{
+			$connData['param_name'] = [];
+		}
 		for ( $i = 0; $i < count( $connData['param_name'] ); $i++ )
 		{
 			if ( $connData['param_name'][$i] == '' )
@@ -935,6 +948,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$soapResult = call_user_func( [ $soap, $function ], $listParams );
 		// Prepare the return values (if any).
 		$soapReturn = [];
+		if ( ! isset( $connData['response_field'] ) || ! is_array( $connData['response_field'] ) )
+		{
+			$connData['response_field'] = [];
+		}
 		for ( $i = 0; $i < count( $connData['response_field'] ); $i++ )
 		{
 			if ( $connData['response_field'][$i] == '' )
@@ -958,7 +975,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					}
 					catch ( Exception $e )
 					{
-						$returnValue = '[Invalid response name]';
+						$returnValue = ''; // invalid response name, return empty string
 					}
 					break;
 				case 'S': // server date/time
