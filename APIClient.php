@@ -973,7 +973,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 							$returnValue = json_encode( $returnValue );
 						}
 					}
-					catch ( Exception $e )
+					catch ( \Exception $e )
 					{
 						$returnValue = ''; // invalid response name, return empty string
 					}
