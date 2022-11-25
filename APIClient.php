@@ -279,8 +279,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Check if the API connections can be edited by the current user.
 	function canEditConnections()
 	{
+		// Get user object.
+		$user = $this->getUser();
+		if ( ! is_object( $user ) )
+		{
+			return false;
+		}
 		// Administrators can always edit API connections.
-		if ( $this->getUser()->isSuperUser() )
+		if ( $user->isSuperUser() )
 		{
 			return true;
 		}
@@ -289,15 +295,23 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$canEditPr = $this->getProjectSetting( 'allow-normal-users-project' );
 		$canEditSys = $this->getSystemSetting( 'allow-normal-users' );
 		$canEdit = $canEditPr == 'A' || ( $canEditPr != 'D' && $canEditSys );
-		$userRights = $this->getUser()->getRights();
-		// Don't allow access by non-administrators without user rights.
-		// (in practice, such users probably cannot access the project).
-		if ( $userRights === null )
+		$userRights = $user->getRights();
+		// Don't allow access if denied. Also don't allow access by non-administrators without
+		// user rights (in practice, such users probably cannot access the project).
+		if ( ! $canEdit || $userRights === null )
 		{
 			return false;
 		}
-		// If access is allowed for non-administrators, grant access if the user has design rights.
-		if ( $canEdit && $userRights[ 'design' ] == '1' )
+		// If access is allowed for non-administrators, grant access if the user has design rights
+		// or the module specific rights if enabled.
+		$specificRights = ( $this->getSystemSetting( 'config-require-user-permission' ) == 'true' );
+		if ( ! $specificRights && $userRights[ 'design' ] == '1' )
+		{
+			return true;
+		}
+		$moduleName = preg_replace( '/_v[0-9.]+$/', '', $this->getModuleDirectoryName() );
+		if ( $specificRights && is_array( $userRights['external_module_config'] ) &&
+		     in_array( $moduleName, $userRights['external_module_config'] ) )
 		{
 			return true;
 		}
