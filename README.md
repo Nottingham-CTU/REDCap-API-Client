@@ -10,12 +10,35 @@ If enabled, anyone with design/setup rights in a project can configure API conne
 project. If disabled, only administrators can configure API connections. This setting can be
 overridden for individual projects.
 
+Please be aware that the API client can make arbitrary connections to other servers directly from
+your REDCap web server, as specified by the user. You should consider any security implications
+before allowing non-administrators to configure API connections.
+
+### Allow list of domains for API connections
+
+List the domains (one per line) that the API client is allowed to connect to. Subdomains are not
+automatically included and must be listed explicitly. If this setting is blank then the API client
+can connect to all domains. This applies to all connection types.
+
+If you are allowing non-administrators to use the API client to communicate with specific services,
+it is recommended that you use this setting.
+
+### Allow connections to IPv4 private network ranges and link-local addresses
+
+By default, the API client will attempt to block connections to IPv4 private network ranges as
+specified in RFC 1918 (10.\*, 172.16.\*-172.31.\*, 192.168.\*) and IPv4 link-local addresses
+(169.254.\*). Enabling this setting will allow these connections.
+
+Enabling this setting may have security implications if you allow non-administrators to configure
+API connections, as it could allow access to protected internal resources.
+
 ### File path of cURL CA bundle
 
 If HTTP/REST connections to secure (https) endpoints fail, this may be because the cURL library does
 not have a set of trusted certificate authorities. To fix this, obtain a file of trusted certificate
-authority root certificates, place the file somewhere on the server, and provide the file path to
-that file here.
+authority root certificates and place the file somewhere on the server. You can specify the location
+of this file in the *curl.cainfo* setting in php.ini, but if you are unable to change that setting
+or you would like to override it then you can specify the CA bundle file location here.
 
 ## Project-level configuration options
 
@@ -73,7 +96,11 @@ These fields only apply to HTTP/REST connections.
 You can create as many placeholders as required.
 
 * **Placeholder Name** &ndash; A string value to search for in the *URL*, *Request Headers* and
-  *Request Body*, to replace with the value retrieved from the project record.
+  *Request Body*, to replace with the value retrieved from the project record.<br>
+  If the *also replace defined placeholder names in response value paths* option is selected, then
+  for any response field of type *response value*, the name of the response value (JSON path or
+  XPath) will also have the placeholder names replaced with the value retrieved from the project
+  record.
 * **Placeholder Value** &ndash; The field to replace the placeholder name with. Specify the event,
   field and instance. If an instance number is not supplied, the current instance will be used if
   applicable, otherwise the latest instance will be used.
@@ -155,3 +182,8 @@ follows the field interpretation selection.
 * **Format date** &ndash; This option will assume the input is a date or datetime, and format it
   according to the transformation parameters, which must be in
   [PHP date format](https://www.php.net/manual/en/datetime.format.php).
+* **Get line** &ndash; For multi-line (notes) fields, get only the line specified in the
+  transformation parameters, where 0 is the first line, 1 is the second line etc. Negative numbers
+  can be used to count from the end, use -1 for the last line, -2 for the penultimate line etc.
+* **Concatenate lines** &ndash; For multi-line (notes) fields, convert into a single line using the
+  value of the transformation parameters as the separator.

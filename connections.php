@@ -66,6 +66,11 @@ if ( count( $listConnections ) > 0 )
 	}
 ?>
 </table>
+<ul style="margin-top:25px">
+ <li>
+  <a href="<?php echo $module->getUrl( 'api_test.php' ); ?>" target="_blank">API Connection Debugger</a>
+ </li>
+</ul>
 <?php
 }
 

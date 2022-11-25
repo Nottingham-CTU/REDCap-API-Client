@@ -161,6 +161,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			// Perform the appropriate logic for the connection type.
 			$connData = $this->getConnectionData( $connID );
+			$this->apiDebug( 'START CONNECTION: ' . $connConfig['label'] );
+			$this->apiDebug( 'Triggered by form submission (' . $instrument . '), record ' .
+			                 $record . ( $event_id == '' ? '' : ", event ID $event_id" ) .
+			                 ( $isRepeating ? ", instance $repeat_instance" : '' ) );
 			if ( $connConfig['type'] == 'http' )
 			{
 				$this->performHTTP( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ) );
@@ -169,6 +173,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				$this->performWSDL( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ) );
 			}
+			$this->apiDebug( 'END CONNECTION' );
 		}
 	}
 
@@ -251,6 +256,22 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 		}
 		$_GET['pid'] = $oldContext;
+	}
+
+
+
+	// If debugging active, write debugging data.
+	function apiDebug( $data )
+	{
+		if ( isset( $_SESSION['module_apiclient_debug'] ) &&
+		     $_SESSION['module_apiclient_debug']['ts'] > time() - 60 )
+		{
+			if ( ! isset( $_SESSION['module_apiclient_debug']['data'] ) )
+			{
+				$_SESSION['module_apiclient_debug']['data'] = '';
+			}
+			$_SESSION['module_apiclient_debug']['data'] .= $data . "\n";
+		}
 	}
 
 
@@ -366,6 +387,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 
+	// Escapes text for inclusion in HTML.
+	function escapeHTML( $text )
+	{
+		return htmlspecialchars( $text, ENT_QUOTES );
+	}
+
+
+
 	// Returns a list of events for the project.
 	function getEventList()
 	{
@@ -379,38 +408,6 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$listEvents[ $uniqueName ] = $eventName;
 		}
 		return $listEvents;
-	}
-
-
-
-	// Returns a list of fields for the project.
-	function getFieldList( $fieldTypes = '*' )
-	{
-		$listTypes = explode( ',', $fieldTypes );
-		$listFields = [];
-		foreach ( \REDCap::getDataDictionary( 'array' ) as $infoField )
-		{
-			if ( $fieldTypes == '*' || in_array( $infoField['field_type'], $listTypes ) ||
-			     ( in_array( 'date', $listTypes ) && $infoField['field_type'] == 'text' &&
-			       substr( $infoField['text_validation_type_or_show_slider_number'],
-			               0, 4 ) == 'date' ) ||
-			     ( in_array( 'datetime', $listTypes ) && $infoField['field_type'] == 'text' &&
-			       substr( $infoField['text_validation_type_or_show_slider_number'],
-			               0, 8 ) == 'datetime' ) )
-			{
-				$fieldLabel = str_replace( ["\r\n", "\n"], ' ', $infoField['field_label'] );
-				$fieldLabel = trim( preg_replace( '/\\<[^<>]+\\>/', ' ', $fieldLabel ) );
-				if ( strlen( $fieldLabel ) > 35 )
-				{
-					$fieldLabel =
-						substr( $fieldLabel, 0, 25 ) . ' ... ' . substr( $fieldLabel, -8 );
-				}
-
-				$listFields[ $infoField['field_name'] ] =
-					$infoField['field_name'] . ' - ' . $fieldLabel;
-			}
-		}
-		return $listFields;
 	}
 
 
@@ -600,6 +597,26 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			                                       intval( substr( $data, 8, 2 ) ),
 			                                       intval( substr( $data, 0, 4 ) ) ) );
 		}
+		elseif ( $funcName == 'getline' && $data != '' &&
+		         preg_match( '/^(0|(-?[1-9][0-9]*))$/', $funcParams ) )
+		{
+			// Get the specified line from multi-line text.
+			$data = explode( "\n", str_replace( "\r\n", "\n", $data ) );
+			$funcParams = intval( $funcParams );
+			if ( $funcParams < 0 )
+			{
+				$funcParams = count( $data ) + $funcParams;
+			}
+			if ( $funcParams < 0 || $funcParams > count( $data ) - 1 )
+			{
+				$data = '';
+			}
+			$data = $data[ $funcParams ];
+		}
+		elseif ( $funcName == 'concatlines' && $data != '' )
+		{
+			$data = implode( $funcParams, explode( "\n", str_replace( "\r\n", "\n", $data ) ) );
+		}
 		// Return the value.
 		return $data;
 	}
@@ -628,10 +645,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	{
 		if ( $_GET[ $variable ] == $value )
 		{
-			return '<em>' . htmlspecialchars( $label ) . '</em>';
+			return '<em>' . $this->escapeHTML( $label ) . '</em>';
 		}
-		return '<a href="' . htmlspecialchars( $this->makeQueryURL( $variable, $value ) ) .
-		       '">' . htmlspecialchars( $label ) . '</a>';
+		return '<a href="' . $this->escapeHTML( $this->makeQueryURL( $variable, $value ) ) .
+		       '">' . $this->escapeHTML( $label ) . '</a>';
 	}
 
 
@@ -675,13 +692,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Output a drop-down list of events for the project.
 	function outputEventDropdown( $dropDownName, $value )
 	{
-		echo '<select name="', htmlspecialchars( $dropDownName ), '">';
+		echo '<select name="', $this->escapeHTML( $dropDownName ), '">';
 		echo '<option value=""', ( $value == '' ? ' selected' : '' ), '></option>';
 		foreach ( $this->getEventList() as $optValue => $optLabel )
 		{
-			echo '<option value="', htmlspecialchars( $optValue ), '"',
+			echo '<option value="', $this->escapeHTML( $optValue ), '"',
 			     ( $value == $optValue ? ' selected' : '' ), '>',
-			     htmlspecialchars( $optLabel ), '</option>';
+			     $this->escapeHTML( $optLabel ), '</option>';
 		}
 		echo '</select>';
 	}
@@ -689,16 +706,38 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Output a drop-down list of fields for the project.
-	function outputFieldDropdown( $dropDownName, $value, $fieldType = '*' )
+	function outputFieldDropdown( $dropDownName, $value )
 	{
-		echo '<select name="', htmlspecialchars( $dropDownName ), '">';
+		$listForms = \REDCap::getInstrumentNames();
+		$formName = '';
+		echo '<select name="', $this->escapeHTML( $dropDownName ), '">';
 		echo '<option value=""', ( $value == '' ? ' selected' : '' ), '></option>';
-		foreach ( $this->getFieldList( $fieldType ) as $optValue => $optLabel )
+		foreach ( \REDCap::getFieldNames() as $optValue )
 		{
-			echo '<option value="', htmlspecialchars( $optValue ), '"',
+			if ( \REDCap::getFieldType( $optValue ) == 'descriptive' )
+			{
+				continue;
+			}
+			$optLabel = $this->getFieldLabel( $optValue );
+			$optLabel = str_replace( ["\r\n", "\n"], ' ', $optLabel );
+			$optLabel = trim( preg_replace( '/\\<[^<>]+\\>/', ' ', $optLabel ) );
+			if ( strlen( $optLabel ) > 35 )
+			{
+				$optLabel = substr( $optLabel, 0, 25 ) . ' ... ' . substr( $optLabel, -8 );
+			}
+			$optLabel = $optValue . ( $optLabel == '' ? '' : ( ' - ' . $optLabel ) );
+			$fieldForm = $this->getProject()->getFormForField( $optValue );
+			if ( $formName != $fieldForm )
+			{
+				echo $formName == '' ? '' : '</optgroup>';
+				echo '<optgroup label="', $this->escapeHTML( $listForms[ $fieldForm ] ), '">';
+			}
+			echo '<option value="', $this->escapeHTML( $optValue ), '"',
 			     ( $value == $optValue ? ' selected' : '' ), '>',
-			     htmlspecialchars( $optLabel ), '</option>';
+			     $this->escapeHTML( $optLabel ), '</option>';
+			$formName = $fieldForm;
 		}
+		echo '</optgroup>';
 		echo '</select>';
 	}
 
@@ -707,13 +746,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	// Output a drop-down list of forms/instruments for the project.
 	function outputFormDropdown( $dropDownName, $value )
 	{
-		echo '<select name="', htmlspecialchars( $dropDownName ), '">';
+		echo '<select name="', $this->escapeHTML( $dropDownName ), '">';
 		echo '<option value=""', ( $value == '' ? ' selected' : '' ), '></option>';
 		foreach ( \REDCap::getInstrumentNames() as $optValue => $optLabel )
 		{
-			echo '<option value="', htmlspecialchars( $optValue ), '"',
+			echo '<option value="', $this->escapeHTML( $optValue ), '"',
 			     ( $value == $optValue ? ' selected' : '' ), '>',
-			     htmlspecialchars( $optLabel ), '</option>';
+			     $this->escapeHTML( $optLabel ), '</option>';
 		}
 		echo '</select>';
 	}
@@ -728,6 +767,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$method = $connData['method'];
 		$headers = $connData['headers'];
 		$body = $connData['body'];
+		$this->apiDebug( 'HTTP Request (method: ' . strtoupper( $method ) . ')' );
+		$this->apiDebug( 'Parameters (pre-placeholder replacement):' );
+		$this->apiDebug( '  HTTP URL: ' . $url );
+		$this->apiDebug( '  Headers: ' . str_replace( "\n", "\n           ", $headers ) );
+		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $body ) );
 		// Get the placeholder name/value pairs.
 		$listPlaceholders = [];
 		if ( ! isset( $connData['ph_name'] ) || ! is_array( $connData['ph_name'] ) )
@@ -760,12 +804,25 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$listPlaceholders[ $connData['ph_name'][$i] ] = $placeholderValue;
 		}
 		// Search/replace the placeholder names with the values.
+		$this->apiDebug( 'Placeholders:' );
 		foreach ( $listPlaceholders as $placeholderName => $placeholderValue )
 		{
+			$placeholderValue = array_reduce( [ $placeholderValue ],
+			                                  function( $c, $i ) { return $c . $i; }, '' );
+			$this->apiDebug( '  ' . $placeholderName . ' => ' . $placeholderValue );
 			$url = str_replace( $placeholderName, $placeholderValue, $url );
-			$method = str_replace( $placeholderName, $placeholderValue, $method );
 			$headers = str_replace( $placeholderName, $placeholderValue, $headers );
 			$body = str_replace( $placeholderName, $placeholderValue, $body );
+		}
+		$this->apiDebug( 'Parameters (post-placeholder replacement):' );
+		$this->apiDebug( '  HTTP URL: ' . $url );
+		$this->apiDebug( '  Headers: ' . str_replace( "\n", "\n           ", $headers ) );
+		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $body ) );
+		// Check that the URL is valid.
+		if ( ! $this->validateURL( $url ) )
+		{
+			$this->apiDebug( 'Invalid or disallowed URL.' );
+			return;
 		}
 		// Use cURL to perform the HTTP request.
 		$curlCertBundle = $this->getSystemSetting('curl-ca-bundle');
@@ -775,6 +832,12 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
 		}
 		curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
+		$proxyHost = $this->getSystemSetting( 'http-proxy-host' );
+		$proxyPort = $this->getSystemSetting( 'http-proxy-port' );
+		if ( $proxyHost != '' && $proxyPort != '' )
+		{
+			curl_setopt( $curl, CURLOPT_PROXY, $proxyHost . ':' . $proxyPort );
+		}
 		curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
 		switch ( $method )
 		{
@@ -796,14 +859,19 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		curl_setopt( $curl, CURLOPT_HTTPHEADER,
 		             explode( "\n", str_replace( "\r\n", "\n", $headers ) ) );
 		$httpResult = curl_exec( $curl );
+		$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		// Stop here if the response format is 'none', or if the HTTP response status is not 200.
-		if ( ( $connData['response_format'] ?? '' ) == '' ||
-		     curl_getinfo( $curl, CURLINFO_HTTP_CODE ) != 200 )
+		$this->apiDebug( 'Response:' );
+		$this->apiDebug( '  Status: ' . $responseCode );
+		if ( ( $connData['response_format'] ?? '' ) == '' || $responseCode != 200 )
 		{
+			$this->apiDebug( $responseCode == 200 ? 'Response not needed.' : 'Bad response code.' );
 			return;
 		}
+		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $httpResult ) );
 		// Prepare the return values (if any).
 		$httpReturn = [];
+		$this->apiDebug( 'New data:' );
 		if ( ! isset( $connData['response_field'] ) || ! is_array( $connData['response_field'] ) )
 		{
 			$connData['response_field'] = [];
@@ -821,18 +889,27 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					$returnValue = $connData['response_val'][$i];
 					break;
 				case 'R': // response value
+					$responsePath = $connData['response_val'][$i];
+					if ( isset( $connData['placeholder_response_path'] ) )
+					{
+						foreach ( $listPlaceholders as $placeholderName => $placeholderValue )
+						{
+							$responsePath =
+								str_replace( $placeholderName, $placeholderValue, $responsePath );
+						}
+					}
 					if ( $connData['response_format'] == 'J' ) // JSON
 					{
 						$httpProcConn = $GLOBALS['conn'];
 						$httpProcQuery =
 							$httpProcConn->prepare( 'SELECT JSON_UNQUOTE(JSON_EXTRACT(?,?))' );
-						$httpProcQuery->bind_param( 'ss', $httpResult,
-						                            $connData['response_val'][$i] );
+						$httpProcQuery->bind_param( 'ss', $httpResult, $responsePath );
 						$httpProcQuery->execute();
 						$httpProcResult = $httpProcQuery->get_result();
 						if ( $httpProcResult === false )
 						{
-							$returnValue = ''; // invalid response path, return empty string
+							// invalid response path, return error value
+							$returnValue = $connData['response_errval'] ?? '';
 						}
 						else
 						{
@@ -858,11 +935,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 							$httpResultDOM = new \DOMDocument();
 							$httpResultDOM->loadXML( $httpResult );
 							$httpResultXPath = new \DOMXPath( $httpResultDOM );
-							$httpResultItem =
-								$httpResultXPath->evaluate( $connData['response_val'][$i] );
+							$httpResultItem = $httpResultXPath->evaluate( $responsePath );
 							if ( $httpResultItem === false )
 							{
-								$returnValue = ''; // invalid response path, return empty string
+								// invalid response path, return error value
+								$returnValue = $connData['response_errval'] ?? '';
 							}
 							elseif ( $httpResultItem instanceof \DOMNodeList )
 							{
@@ -872,7 +949,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								}
 								else
 								{
-									$returnValue = ''; // invalid response path, return empty string
+									// invalid response path, return error value
+									$returnValue = $connData['response_errval'] ?? '';
 								}
 							}
 							else
@@ -882,7 +960,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 						}
 						catch ( \Exception $e )
 						{
-							$returnValue = ''; // invalid response path, return empty string
+							// invalid response path, return error value
+							$returnValue = $connData['response_errval'] ?? '';
 						}
 					}
 					break;
@@ -899,6 +978,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			                                ? $defaultInstance : $connData['response_inst'][$i] ),
 			                'value' => $returnValue ];
 			$httpReturn[] = $returnItem;
+			$this->apiDebug( '  ' . json_encode( $returnItem ) );
 		}
 		// Write the return values to the record.
 		if ( count( $httpReturn ) > 0 )
@@ -915,7 +995,17 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Get the WSDL endpoint URL and function name.
 		$url = $connData['url'];
 		$function = $connData['function'];
+		$this->apiDebug( 'SOAP/WSDL Request' );
+		$this->apiDebug( 'URL: ' . $url );
+		$this->apiDebug( 'Function: ' .$function );
+		// Check that the URL is valid.
+		if ( ! $this->validateURL( $url ) )
+		{
+			$this->apiDebug( 'Invalid or disallowed URL.' );
+			return;
+		}
 		// Get the SOAP parameter names and values.
+		$this->apiDebug( 'Parameters:' );
 		$listParams = [];
 		if ( ! isset( $connData['param_name'] ) || ! is_array( $connData['param_name'] ) )
 		{
@@ -942,12 +1032,26 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					                             $connData['param_func'][$i],
 					                             $connData['param_func_args'][$i] );
 			}
+			$this->apiDebug( '  ' . $connData['param_name'][$i] . ' => ' .
+			                 $listParams[ $connData['param_name'][$i] ] );
+		}
+		// Prepare the options for the request.
+		$soapOptions = [ 'cache_wsdl' => WSDL_CACHE_MEMORY ];
+		$proxyHost = $this->getSystemSetting( 'http-proxy-host' );
+		$proxyPort = $this->getSystemSetting( 'http-proxy-port' );
+		if ( $proxyHost != '' && $proxyPort != '' )
+		{
+			$soapOptions['proxy_host'] = $proxyHost;
+			$soapOptions['proxy_port'] = $proxyPort;
 		}
 		// Use SoapClient to perform the request.
-		$soap = new \SoapClient( $url, [ 'cache_wsdl' => WSDL_CACHE_MEMORY ] );
+		$soap = new \SoapClient( $url, $soapOptions );
 		$soapResult = call_user_func( [ $soap, $function ], $listParams );
+		$this->apiDebug( 'SOAP/WSDL Response:' );
+		$this->apiDebug( '  ' . str_replace( "\n", "\n  ", print_r( $soapResult, true ) ) );
 		// Prepare the return values (if any).
 		$soapReturn = [];
+		$this->apiDebug( 'New data:' );
 		if ( ! isset( $connData['response_field'] ) || ! is_array( $connData['response_field'] ) )
 		{
 			$connData['response_field'] = [];
@@ -991,6 +1095,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			                                ? $defaultInstance : $connData['response_inst'][$i] ),
 			                'value' => $returnValue ];
 			$soapReturn[] = $returnItem;
+			$this->apiDebug( '  ' . json_encode( $returnItem ) );
 		}
 		// Write the return values to the record.
 		if ( count( $soapReturn ) > 0 )
@@ -1201,6 +1306,49 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$this->removeSystemSetting( "p$projectID-conn-lastrun-$connID" );
 		}
 		$this->updateCronList( $projectID, $connID, $connConfig );
+	}
+
+
+
+	// Validate the URL for an API connection.
+	function validateURL( $url )
+	{
+		if ( substr( $url, 0, 7 ) != 'http://' && substr( $url, 0, 8 ) != 'https://' )
+		{
+			return false;
+		}
+		$domain = parse_url( $url, PHP_URL_HOST );
+		if ( $domain === false || $domain === null )
+		{
+			return false;
+		}
+		$allowlist = $this->getSystemSetting( 'domain-allowlist' );
+		if ( $allowlist != '' )
+		{
+			$listDomains = explode( "\n", str_replace( "\r\n", "\n", $allowlist ) );
+			if ( ! in_array( $domain, $listDomains ) )
+			{
+				return false;
+			}
+		}
+		if ( $this->getSystemSetting( 'allow-rfc-1918' ) )
+		{
+			return true;
+		}
+		$ip = $domain;
+		if ( ! preg_match( '/^((1?[0-9]{1,2}|2([0-4][0-9]|5[0-5]))\.){3}' .
+		                   '(1?[0-9]{1,2}|2([0-4][0-9]|5[0-5]))$/', $ip ) )
+		{
+			$ip = gethostbyname( "$domain." );
+		}
+		if ( preg_match( '/^(10(\.(1?[0-9]{1,2}|2([0-4][0-9]|5[0-5]))){3}|' .
+		                 '(169\.254|172\.(1[6-9]|2[0-9]|3[01])|192\.168)' .
+		                 '(\.(1?[0-9]{1,2}|2([0-4][0-9]|5[0-5]))){2})$/', $ip ) )
+		{
+			// IPv4 in ranges 10/8, 169.254/16, 172.16/12, 192.168/16
+			return false;
+		}
+		return true;
 	}
 
 

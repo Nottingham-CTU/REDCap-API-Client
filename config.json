@@ -30,6 +30,26 @@
 			"super-users-only" : true
 		},
 		{
+			"key" : "domain-allowlist",
+			"name" : "Allow list of domains for API connections<br>(if blank, allow all domains)",
+			"type" : "textarea"
+		},
+		{
+			"key" : "allow-rfc-1918",
+			"name" : "Allow connections to IPv4 private network ranges and link-local addresses",
+			"type" : "checkbox"
+		},
+		{
+			"key" : "http-proxy-host",
+			"name" : "HTTP proxy host",
+			"type" : "text"
+		},
+		{
+			"key" : "http-proxy-port",
+			"name" : "HTTP proxy port",
+			"type" : "text"
+		},
+		{
 			"key" : "curl-ca-bundle",
 			"name" : "File path of cURL CA bundle",
 			"type" : "text"
