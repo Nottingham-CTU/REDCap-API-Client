@@ -122,6 +122,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			return;
 		}
+		// Get the unique event name for the event.
+		$eventName = \REDCap::getEventNames( true, false, $event_id );
+		$eventName = ( $eventName === false ) ? '' : $eventName;
 		// Check if the submitted form is repeating.
 		$repeatingForms = $this->getRepeatingForms( $event_id );
 		$isRepeating = ( ( count( $repeatingForms ) == 1 && $repeatingForms[0] === null ) ||
@@ -163,15 +166,17 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$connData = $this->getConnectionData( $connID );
 			$this->apiDebug( 'START CONNECTION: ' . $connConfig['label'] );
 			$this->apiDebug( 'Triggered by form submission (' . $instrument . '), record ' .
-			                 $record . ( $event_id == '' ? '' : ", event ID $event_id" ) .
+			                 $record . ( $eventName == '' ? '' : ", $eventName" ) .
 			                 ( $isRepeating ? ", instance $repeat_instance" : '' ) );
 			if ( $connConfig['type'] == 'http' )
 			{
-				$this->performHTTP( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ) );
+				$this->performHTTP( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ),
+				                    $eventName );
 			}
 			elseif ( $connConfig['type'] == 'wsdl' )
 			{
-				$this->performWSDL( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ) );
+				$this->performWSDL( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ),
+				                    $eventName );
 			}
 			$this->apiDebug( 'END CONNECTION' );
 		}
@@ -229,29 +234,37 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				continue;
 			}
 			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", $execTime );
-			// For each record...
+			// For each record (& each event if applicable)...
+			$connConfig = $this->getConnectionConfig( $connID );
+			$connData = $this->getConnectionData( $connID );
+			$listEvents = [ null ];
+			if ( isset( $connConfig['all_events'] ) )
+			{
+				$listEvents = \REDCap::getEventNames( true );
+			}
 			foreach ( array_keys( \REDCap::getData( [ 'project_id' => $projectID,
 			                                          'return_format' => 'array',
 			                                          'fields' => $this->getRecordIdField() ] ) )
 			          as $record )
 			{
-				// Check the conditional logic (if applicable).
-				$connConfig = $this->getConnectionConfig( $connID );
-				if ( $connConfig['condition'] != '' &&
-				     \REDCap::evaluateLogic( $connConfig['condition'],
-				                             $projectID, $record ) !== true )
+				foreach ( $listEvents as $event )
 				{
-					continue;
-				}
-				// Perform the appropriate logic for the connection type.
-				$connData = $this->getConnectionData( $connID );
-				if ( $connConfig['type'] == 'http' )
-				{
-					$this->performHTTP( $connData, $record, 0 );
-				}
-				elseif ( $connConfig['type'] == 'wsdl' )
-				{
-					$this->performWSDL( $connData, $record, 0 );
+					// Check the conditional logic (if applicable).
+					if ( $connConfig['condition'] != '' &&
+					     \REDCap::evaluateLogic( $connConfig['condition'],
+					                             $projectID, $record, $event ) !== true )
+					{
+						continue;
+					}
+					// Perform the appropriate logic for the connection type.
+					if ( $connConfig['type'] == 'http' )
+					{
+						$this->performHTTP( $connData, $record, 0, $event ?? '' );
+					}
+					elseif ( $connConfig['type'] == 'wsdl' )
+					{
+						$this->performWSDL( $connData, $record, 0, $event ?? '' );
+					}
 				}
 			}
 		}
@@ -704,10 +717,15 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Output a drop-down list of events for the project.
-	function outputEventDropdown( $dropDownName, $value )
+	function outputEventDropdown( $dropDownName, $value, $includeCurrentEvent = false )
 	{
 		echo '<select name="', $this->escapeHTML( $dropDownName ), '">';
 		echo '<option value=""', ( $value == '' ? ' selected' : '' ), '></option>';
+		if ( $includeCurrentEvent )
+		{
+			echo '<option value="%"' , ( $value == '%' ? ' selected' : '' ),
+			     '>Current Event</option>';
+		}
 		foreach ( $this->getEventList() as $optValue => $optLabel )
 		{
 			echo '<option value="', $this->escapeHTML( $optValue ), '"',
@@ -774,7 +792,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Perform a HTTP REST request.
-	function performHTTP( $connData, $recordID, $defaultInstance )
+	function performHTTP( $connData, $recordID, $defaultInstance, $defaultEvent )
 	{
 		// Get the URL, request method, headers and body.
 		$url = $connData['url'];
@@ -800,8 +818,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			$useInstance =
 				( $connData['ph_inst'][$i] === '' ? $defaultInstance : $connData['ph_inst'][$i] );
+			$useEvent = ( $connData['ph_event'][$i] ?? '' );
+			$useEvent = ( $useEvent == '%' ) ? $defaultEvent : $useEvent;
 			$placeholderValue =
-				$this->getProjectFieldValue( $recordID, ( $connData['ph_event'][$i] ?? '' ),
+				$this->getProjectFieldValue( $recordID, $useEvent,
 				                             $connData['ph_field'][$i], $useInstance,
 				                             $connData['ph_func'][$i],
 				                             $connData['ph_func_args'][$i] );
@@ -986,7 +1006,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					$returnValue = gmdate( 'Y-m-d H:i:s' );
 					break;
 			}
-			$returnItem = [ 'event' => ( $connData['response_event'][$i] ?? '' ),
+			$useEvent = ( $connData['response_event'][$i] ?? '' );
+			$useEvent = ( $useEvent == '%' ) ? $defaultEvent : $useEvent;
+			$returnItem = [ 'event' => $useEvent,
 			                'field' => $connData['response_field'][$i],
 			                'instance' => ( $connData['response_inst'][$i] === ''
 			                                ? $defaultInstance : $connData['response_inst'][$i] ),
@@ -1004,7 +1026,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Perform a SOAP WSDL request.
-	function performWSDL( $connData, $recordID, $defaultInstance )
+	function performWSDL( $connData, $recordID, $defaultInstance, $defaultEvent )
 	{
 		// Get the WSDL endpoint URL and function name.
 		$url = $connData['url'];
@@ -1040,8 +1062,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				$useInstance =
 					( $connData['param_inst'][$i] === '' ? $defaultInstance
 					                                     : $connData['param_inst'][$i] );
+				$useEvent = ( $connData['param_event'][$i] ?? '' );
+				$useEvent = ( $useEvent == '%' ) ? $defaultEvent : $useEvent;
 				$listParams[ $connData['param_name'][$i] ] =
-					$this->getProjectFieldValue( $recordID, ( $connData['param_event'][$i] ?? '' ),
+					$this->getProjectFieldValue( $recordID, $useEvent,
 					                             $connData['param_field'][$i], $useInstance,
 					                             $connData['param_func'][$i],
 					                             $connData['param_func_args'][$i] );
@@ -1103,7 +1127,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					$returnValue = gmdate( 'Y-m-d H:i:s' );
 					break;
 			}
-			$returnItem = [ 'event' => ( $connData['response_event'][$i] ?? '' ),
+			$useEvent = ( $connData['response_event'][$i] ?? '' );
+			$useEvent = ( $useEvent == '%' ) ? $defaultEvent : $useEvent;
+			$returnItem = [ 'event' => $useEvent,
 			                'field' => $connData['response_field'][$i],
 			                'instance' => ( $connData['response_inst'][$i] === ''
 			                                ? $defaultInstance : $connData['response_inst'][$i] ),

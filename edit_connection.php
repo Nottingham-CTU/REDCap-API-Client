@@ -77,7 +77,7 @@ function fieldSelector( $name, $incFunc = true )
 	ob_start();
 	if ( REDCap::isLongitudinal() )
 	{
-		$module->outputEventDropdown( $name . '_event[]', '' );
+		$module->outputEventDropdown( $name . '_event[]', '', true );
 		echo ' ';
 	}
 	$module->outputFieldDropdown( $name . '_field[]', '' );
@@ -238,6 +238,24 @@ else
      (Schedule time is approximate)
     </td>
    </tr>
+<?php
+if ( REDCap::isLongitudinal() )
+{
+?>
+   <tr class="conn_field_allev">
+    <td>Events</td>
+    <td>
+     <label>
+      <input type="checkbox" name="conn_all_events" value="1"<?php
+	echo $connConfig['type'] == 'http' && isset( $connConfig['all_events'] )
+	     ? ' checked' : '' ?>>
+      Run separately for each event
+     </label>
+    </td>
+   </tr>
+<?php
+}
+?>
    <tr>
     <td>Check conditional logic</td>
     <td>
@@ -391,6 +409,7 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
      var vOption = $('input[name="conn_trigger"]:checked').val()
      $('.conn_field_limit').css('display', vOption == 'R' ? '' : 'none')
      $('.conn_field_cron').css('display', vOption == 'C' ? '' : 'none')
+     $('.conn_field_allev').css('display', vOption == 'C' ? '' : 'none')
      $('.conn_field_cron input').prop('required', vOption == 'C')
      if ( vOption != 'R' )
      {
@@ -399,6 +418,7 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
      if ( vOption != 'C' )
      {
        $('.conn_field_cron input').val('')
+       $('.conn_field_allev input').prop('checked',false)
      }
    })
    $('input[name="conn_trigger"]:checked').click()
