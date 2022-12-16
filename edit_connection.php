@@ -27,6 +27,13 @@ $connData = $module->getConnectionData( $connID );
 // Handle form submissions.
 if ( ! empty( $_POST ) )
 {
+	// If indicated, check conditional logic.
+	if ( isset( $_POST[ 'checklogic' ] ) )
+	{
+		header( 'Content-Type: application/json' );
+		echo \LogicTester::isValid( $_POST['checklogic'] ) ? 'true' : 'false';
+		exit;
+	}
 	// If indicated, delete the connection.
 	if ( isset( $_POST[ 'conn_delete' ] ) )
 	{
@@ -262,6 +269,7 @@ if ( REDCap::isLongitudinal() )
      <textarea name="conn_condition" spellcheck="false"
                style="height:75px;max-width:95%;font-family:monospace;white-space:pre"><?php
 echo $connConfig['condition'] ?? ''; ?></textarea>
+     <span id="condition_msg" style="color:#c00"></span>
     </td>
    </tr>
   </tbody>
@@ -420,6 +428,28 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
        $('.conn_field_cron input').val('')
        $('.conn_field_allev input').prop('checked',false)
      }
+   })
+   $('textarea[name="conn_condition"]').change( function()
+   {
+     var vCondValue = $('textarea[name="conn_condition"]')[0].value
+     if ( vCondValue == '' )
+     {
+       $('#condition_msg').html('')
+       return
+     }
+     $.post( '', { checklogic : vCondValue },
+             function( val )
+             {
+               if ( val )
+               {
+                 $('#condition_msg').html('')
+               }
+               else
+               {
+                 $('#condition_msg').html('<br><i class="fas fa-exclamation-triangle"></i> ' +
+                                          'Invalid conditional logic!')
+               }
+             }, 'json')
    })
    $('input[name="conn_trigger"]:checked').click()
    $('select[name="http_method"]').change( function()
