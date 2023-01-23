@@ -813,7 +813,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 		for ( $i = 0; $i < count( $connData['ph_name'] ); $i++ )
 		{
-			if ( $connData['ph_name'][$i] == '' )
+			if ( $connData['ph_name'][$i] == '' || $connData['ph_field'][$i] == '' )
 			{
 				continue;
 			}
@@ -969,6 +969,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 						{
 							$httpResultDOM = new \DOMDocument();
 							$httpResultDOM->loadXML( $httpResult );
+							$httpResultDElem = $httpResultDOM->documentElement;
+							$httpResultDElem->removeAttributeNS( $httpResultDElem->getAttributeNode(
+							                                              'xmlns')->nodeValue, '' );
+							$httpResultDOM->loadXML( $httpResultDOM->saveXML( $httpResultDOM ) );
 							$httpResultXPath = new \DOMXPath( $httpResultDOM );
 							$httpResultItem = $httpResultXPath->evaluate( $responsePath );
 							if ( $httpResultItem === false )
@@ -1050,7 +1054,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 		for ( $i = 0; $i < count( $connData['param_name'] ); $i++ )
 		{
-			if ( $connData['param_name'][$i] == '' )
+			if ( $connData['param_name'][$i] == '' || $connData['param_field'][$i] == '' )
 			{
 				continue;
 			}
