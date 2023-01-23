@@ -240,7 +240,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$listEvents = [ null ];
 			if ( isset( $connConfig['all_events'] ) )
 			{
-				$listEvents = \REDCap::getEventNames( true );
+				$obProj = new \Project( $projectID );
+				$listEvents = $obProj->getUniqueEventNames( null );
 			}
 			foreach ( array_keys( \REDCap::getData( [ 'project_id' => $projectID,
 			                                          'return_format' => 'array',
@@ -1235,7 +1236,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			return;
 		}
 		// Add the data to the record.
-		\REDCap::saveData( [ 'dataFormat' => 'array', 'data' => $data, 'dateFormat' => 'YMD',
+		\REDCap::saveData( [ 'project_id' => ( defined('PROJECT_ID') ? PROJECT_ID : $_GET['pid'] ),
+		                     'dataFormat' => 'array', 'data' => $data, 'dateFormat' => 'YMD',
 		                     'overwriteBehavior' => 'normal' ] );
 	}
 
