@@ -128,13 +128,13 @@ else
 </div>
 <p style="display:flex;justify-content:space-between;width:97%;max-width:97%">
  <a href="<?php echo $module->getUrl( 'connections.php' )
-?>" class="fas fa-arrow-circle-left fs12"> Back to API client connections</a>
+?>"><i class="fas fa-arrow-circle-left fs12"></i> Back to API client connections</a>
 <?php
 if ( $connID != '' )
 {
 ?>
- <a href="#" class="fas fa-trash fs12"
-    onclick="$('#delconnform').submit();return false"> Delete connection</a>
+ <a href="#" onclick="$('#delconnform').submit();return false"
+    style="color:#c00"><i class="fas fa-trash fs12"></i> Delete connection</a>
 <?php
 }
 ?>
@@ -329,7 +329,7 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
    </tr>
    <tr>
     <td></td>
-    <td><a href="#" class="fas fa-plus-circle fs12" id="http_add_ph"> Add placeholder</a></td>
+    <td><a href="#" id="http_add_ph"><i class="fas fa-plus-circle fs12"></i> Add placeholder</a></td>
    </tr>
    <tr><th colspan="2">Response Fields</th></tr>
    <tr>
@@ -349,7 +349,7 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
    <tr>
     <td></td>
     <td>
-     <a href="#" class="fas fa-plus-circle fs12" id="http_add_response"> Add response field</a>
+     <a href="#" id="http_add_response"><i class="fas fa-plus-circle fs12"></i> Add response field</a>
     </td>
    </tr>
    <tr>
@@ -379,13 +379,15 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
    <tr><th colspan="2">SOAP (WSDL) Parameters</th></tr>
    <tr>
     <td></td>
-    <td><a href="#" class="fas fa-plus-circle fs12" id="wsdl_add_param"> Add parameter</a></td>
+    <td>
+     <a href="#" id="wsdl_add_param"><i class="fas fa-plus-circle fs12"></i> Add parameter</a>
+    </td>
    </tr>
    <tr><th colspan="2">Response Fields</th></tr>
    <tr>
     <td></td>
     <td>
-     <a href="#" class="fas fa-plus-circle fs12" id="wsdl_add_response"> Add response field</a>
+     <a href="#" id="wsdl_add_response"><i class="fas fa-plus-circle fs12"></i> Add response field</a>
     </td>
    </tr>
   </tbody>

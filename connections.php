@@ -15,6 +15,8 @@ if ( ! $module->canEditConnections() )
 
 // Get the list of connections.
 $listConnections = $module->getConnectionList();
+uasort( $listConnections,
+        function( $a, $b ) { return strcmp( $a['label'], $b['label'] ); } );
 
 
 
@@ -59,7 +61,7 @@ if ( count( $listConnections ) > 0 )
   </td>
   <td style="width:90px;text-align:center">
    <a href="<?php echo $module->getUrl( 'edit_connection.php?conn_id=' . $connID );
-?>" class="fas fa-pencil-alt fs12"> Edit</a>
+?>"><i class="fas fa-pencil-alt fs12"></i> Edit</a>
   </td>
  </tr>
 <?php
