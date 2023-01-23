@@ -3,6 +3,8 @@
  *	API client connections list.
  */
 
+namespace Nottingham\APIClient;
+
 
 
 // Check user can edit API client connections.

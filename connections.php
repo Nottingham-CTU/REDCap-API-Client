@@ -3,6 +3,8 @@
  *	API client connections list.
  */
 
+namespace Nottingham\APIClient;
+
 
 
 // Check user can edit API client connections.
@@ -51,7 +53,7 @@ if ( count( $listConnections ) > 0 )
  <tr>
   <td style="text-align:left">
    <span style="font-size:115%">
-    <?php echo htmlspecialchars( $infoConnection['label'] ), "\n"; ?>
+    <?php echo $module->escapeHTML( $infoConnection['label'] ), "\n"; ?>
    </span>
    <br>
    <span style="font-size:90%">

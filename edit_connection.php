@@ -3,6 +3,8 @@
  *	API Client connection edit page.
  */
 
+namespace Nottingham\APIClient;
+
 
 
 // Check user can edit API client connections.
@@ -82,7 +84,7 @@ function fieldSelector( $name, $incFunc = true )
 {
 	global $module;
 	ob_start();
-	if ( REDCap::isLongitudinal() )
+	if ( \REDCap::isLongitudinal() )
 	{
 		$module->outputEventDropdown( $name . '_event[]', '', true );
 		echo ' ';
@@ -210,7 +212,7 @@ foreach ( $module->getConnectionTypes() as $connTypeID => $connTypeName )
     <td>Limit to event/form</td>
     <td>
      <?php
-if ( REDCap::isLongitudinal() )
+if ( \REDCap::isLongitudinal() )
 {
 	$module->outputEventDropdown( 'conn_event', $connConfig['event'] );
 	echo "\n";
@@ -246,7 +248,7 @@ else
     </td>
    </tr>
 <?php
-if ( REDCap::isLongitudinal() )
+if ( \REDCap::isLongitudinal() )
 {
 ?>
    <tr class="conn_field_allev">
