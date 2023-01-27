@@ -16,9 +16,9 @@ before allowing non-administrators to configure API connections.
 
 ### Allow list of domains for API connections
 
-List the domains (one per line) that the API client is allowed to connect to. Subdomains are not
-automatically included and must be listed explicitly. If this setting is blank then the API client
-can connect to all domains. This applies to all connection types.
+List the domains (e.g. `api.example.com`), one per line, that the API client is allowed to connect
+to. Subdomains are not automatically included and must be listed explicitly. If this setting is
+blank then the API client can connect to all domains. This applies to all connection types.
 
 If you are allowing non-administrators to use the API client to communicate with specific services,
 it is recommended that you use this setting.
@@ -31,6 +31,10 @@ specified in RFC 1918 (10.\*, 172.16.\*-172.31.\*, 192.168.\*) and IPv4 link-loc
 
 Enabling this setting may have security implications if you allow non-administrators to configure
 API connections, as it could allow access to protected internal resources.
+
+### HTTP proxy host/port
+
+Specify a HTTP proxy host (e.g. `proxy.example.com`) and port (e.g. `3128`) if required.
 
 ### File path of cURL CA bundle
 
@@ -187,3 +191,11 @@ follows the field interpretation selection.
   can be used to count from the end, use -1 for the last line, -2 for the penultimate line etc.
 * **Concatenate lines** &ndash; For multi-line (notes) fields, convert into a single line using the
   value of the transformation parameters as the separator.
+
+
+## API Connection Debugger
+
+Load the API connection debugger when testing an API connection, to check the values retrieved from
+the REDCap project, the placeholder replacement, the request/response, and the new saved values to
+the REDCap project. Keep the debugger page open in a separate tab/window while triggering a
+connection and the results will be shown on the debugger screen.
