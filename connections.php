@@ -3,6 +3,8 @@
  *	API client connections list.
  */
 
+namespace Nottingham\APIClient;
+
 
 
 // Check user can edit API client connections.
@@ -15,6 +17,8 @@ if ( ! $module->canEditConnections() )
 
 // Get the list of connections.
 $listConnections = $module->getConnectionList();
+uasort( $listConnections,
+        function( $a, $b ) { return strcmp( $a['label'], $b['label'] ); } );
 
 
 
@@ -49,7 +53,7 @@ if ( count( $listConnections ) > 0 )
  <tr>
   <td style="text-align:left">
    <span style="font-size:115%">
-    <?php echo htmlspecialchars( $infoConnection['label'] ), "\n"; ?>
+    <?php echo $module->escapeHTML( $infoConnection['label'] ), "\n"; ?>
    </span>
    <br>
    <span style="font-size:90%">
@@ -59,13 +63,18 @@ if ( count( $listConnections ) > 0 )
   </td>
   <td style="width:90px;text-align:center">
    <a href="<?php echo $module->getUrl( 'edit_connection.php?conn_id=' . $connID );
-?>" class="fas fa-pencil-alt fs12"> Edit</a>
+?>"><i class="fas fa-pencil-alt fs12"></i> Edit</a>
   </td>
  </tr>
 <?php
 	}
 ?>
 </table>
+<ul style="margin-top:25px">
+ <li>
+  <a href="<?php echo $module->getUrl( 'api_test.php' ); ?>" target="_blank">API Connection Debugger</a>
+ </li>
+</ul>
 <?php
 }
 
