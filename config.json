@@ -20,6 +20,14 @@
 	"links" : {
 		"project" : [
 			{ "name" : "API Client", "icon" : "fas fa-laptop-code", "url" : "connections.php" }
+		],
+		"control-center" : [
+			{
+				"name" : "API Client Configuration Check",
+				"icon" : "fas fa-clipboard-check",
+				"url" : "configcheck.php",
+				"show-header-and-footer" : true
+			}
 		]
 	},
 	"system-settings" : [

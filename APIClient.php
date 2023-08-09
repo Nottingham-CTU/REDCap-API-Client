@@ -5,10 +5,16 @@ namespace Nottingham\APIClient;
 class APIClient extends \ExternalModules\AbstractExternalModule
 {
 
+	const REDCAP_CAINFO = APP_PATH_DOCROOT . '/Resources/misc/cacert.pem';
+
 	// Show the API Client link based on whether the user is able to edit the API connections.
 	// If the user has no access, hide the link.
 	function redcap_module_link_check_display( $project_id, $link )
 	{
+		if ( $project_id === null )
+		{
+			return $this->getUser()->isSuperUser() ? $link : null;
+		}
 		if ( $this->canEditConnections() )
 		{
 			return $link;
@@ -865,6 +871,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		if ( $curlCertBundle != '' )
 		{
 			curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
+		}
+		elseif ( ini_get( 'curl.cainfo' ) == '' )
+		{
+			curl_setopt( $curl, CURLOPT_CAINFO, self::REDCAP_CAINFO );
 		}
 		curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
 		$proxyHost = $this->getSystemSetting( 'http-proxy-host' );
