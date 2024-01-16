@@ -326,7 +326,22 @@ echo $connData['body'] ?? ''; ?></textarea>
      <input type="checkbox" name="http_placeholder_response_path" value="1"<?php
 echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_path'] )
      ? ' checked' : '' ?>>
-     Also replace defined placeholder names in response value paths.
+     Also replace defined (non-authentication) placeholder names in response value paths.
+    </td>
+   </tr>
+   <tr>
+    <td>Authentication Placeholder</td>
+    <td>
+     Name:
+     <br>
+     <input type="text" name="http_auth_ph_name"
+            value="<?php echo $connConfig['type'] == 'http'
+                              ? $module->escapeHTML( $connData['auth_ph_name'] ?? '' ) : '' ?>">
+     <br>
+     Raw value:
+     <input type="text" name="http_auth_ph_value"
+            value="<?php echo $connConfig['type'] == 'http'
+                              ? $module->escapeHTML( $connData['auth_ph_value'] ?? '' ) : '' ?>">
     </td>
    </tr>
    <tr>
@@ -519,7 +534,8 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
      var vNew = $('<tr data-index="' + vNum + '"><td>Parameter ' + vNum + '</td><td>' +
                   'Name:<br><input type="text" name="wsdl_param_name[]"><br>Type:<br>' +
                   '<select name="wsdl_param_type[]"><option value="C">Constant value</option>' +
-                  '<option value="F">Project field</option></select><br><span>Value:<br>' +
+                  '<option value="F">Project field</option><option value="A">Authentication value' +
+                  '</option></select><br><span>Value:<br>' +
                   '<input type="text" name="wsdl_param_val[]"></span><span>Field:<br>' +
                   '<?php fieldSelector('wsdl_param'); ?>' +
                   '</span></td></tr>')
@@ -527,7 +543,7 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
      vNew.find('select[name="wsdl_param_type[]"]').change(function(){
        var vOption = vNew.find('select[name="wsdl_param_type[]"]').val()
        var vSpan = vNew.find('span')
-       vSpan.eq(0).css('display', vOption == 'C' ? '' : 'none')
+       vSpan.eq(0).css('display', ( vOption == 'C' || vOption == 'A' ) ? '' : 'none')
        vSpan.eq(1).css('display', vOption == 'F' ? '' : 'none')
      })
      vNew.insertAfter( vPrev )

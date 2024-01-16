@@ -813,6 +813,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $body ) );
 		// Get the placeholder name/value pairs.
 		$listPlaceholders = [];
+		if ( isset( $connData['auth_ph_name'] ) && $connData['auth_ph_name'] != '' )
+		{
+			$listPlaceholders[ $connData['auth_ph_name'] ] = $connData['auth_ph_value'];
+		}
 		if ( ! isset( $connData['ph_name'] ) || ! is_array( $connData['ph_name'] ) )
 		{
 			$connData['ph_name'] = [];
@@ -1064,16 +1068,24 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 		for ( $i = 0; $i < count( $connData['param_name'] ); $i++ )
 		{
-			if ( $connData['param_name'][$i] == '' || $connData['param_field'][$i] == '' )
+			if ( $connData['param_name'][$i] == '' )
 			{
 				continue;
 			}
-			if ( $connData['param_type'][$i] == 'C' ) // constant value
+			if ( in_array( $connData['param_type'][$i], [ 'A', 'C' ] ) ) // constant value
 			{
+				if ( $connData['param_val'][$i] == '' )
+				{
+					continue;
+				}
 				$listParams[ $connData['param_name'][$i] ] = $connData['param_val'][$i];
 			}
 			elseif ( $connData['param_type'][$i] == 'F' ) // project field
 			{
+				if ( $connData['param_field'][$i] == '' )
+				{
+					continue;
+				}
 				$useInstance =
 					( $connData['param_inst'][$i] === '' ? $defaultInstance
 					                                     : $connData['param_inst'][$i] );
