@@ -119,6 +119,58 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 
+	// Format the module settings for the REDCap UI Tweaker simplified view.
+	function redcap_every_page_before_render( $project_id = null )
+	{
+		if ( $this->isModuleEnabled('redcap_ui_tweaker') )
+		{
+			$UITweaker = \ExternalModules\ExternalModules::getModuleInstance('redcap_ui_tweaker');
+			if ( $UITweaker->areExtModFuncExpected() )
+			{
+				$UITweaker->addExtModFunc( 'api_client',
+						function ( $data )
+						{
+							static $listSettings = [];
+							if ( $data['setting'] == 'conn-list' ||
+							     substr( $data['setting'], 0, 13 ) == 'conn-lastrun-' )
+							{
+								return false;
+							}
+							elseif ( substr( $data['setting'], 0, 12 ) == 'conn-config-' ||
+							         substr( $data['setting'], 0, 10 ) == 'conn-data-' )
+							{
+								$settingID = substr( $data['setting'],
+								                     substr( $data['setting'], 5, 1 ) == 'c'
+								                     ? 12 : 10 );
+								$setID = isset( $listSettings[ $settingID ] );
+								$listSettings[ $settingID ][ substr( $data['setting'], 5, 1 ) == 'c'
+								                             ? 'config' : 'data' ] = $data['value'];
+								if ( ! $setID )
+								{
+									return false;
+								}
+								$c = json_decode( $listSettings[ $settingID ]['config'], true );
+								$d = json_decode( $listSettings[ $settingID ]['data'], true );
+								$data['setting'] = $c['label'];
+								unset( $c['label'] );
+								$data['value'] = ( $c['active'] ? '' : '**INACTIVE** ' );
+								unset( $c['active'] );
+								$data['value'] .= '[' . strtoupper( $c['type'] ) . '] ';
+								unset( $c['type'] );
+								$data['value'] .= $d['url'] . "\n";
+								unset( $d['url'] );
+								$data['value'] .= json_encode( $c ) . "\n" . json_encode( $d );
+								return $data;
+							}
+							return true;
+						}
+						);
+			}
+		}
+	}
+
+
+
 	// Apply any relevant connections when a record is saved.
 	function redcap_save_record( $project_id, $record, $instrument, $event_id, $group_id = null,
 	                             $survey_hash = null, $response_id = null, $repeat_instance = 1 )
