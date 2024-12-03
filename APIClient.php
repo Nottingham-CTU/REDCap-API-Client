@@ -1105,7 +1105,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Write the return values to the record.
 		if ( count( $httpReturn ) > 0 )
 		{
-			$this->setProjectFieldValues( $recordID, $httpReturn );
+			$this->setProjectFieldValues( $recordID, $httpReturn,
+			                              ( $connData['response_save_blanks'] ?? '' ) == '1' );
 		}
 	}
 
@@ -1234,16 +1235,17 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Write the return values to the record.
 		if ( count( $soapReturn ) > 0 )
 		{
-			$this->setProjectFieldValues( $recordID, $soapReturn );
+			$this->setProjectFieldValues( $recordID, $soapReturn,
+			                              ( $connData['response_save_blanks'] ?? '' ) == '1' );
 		}
 	}
 
 
 
-	// Get the value of a project field.
+	// Set the value of project fields.
 	// $inputData is a 2-level array, where the second level array keys are 'event', 'field',
 	// 'instance', and 'value', defining the fields and the data to insert.
-	function setProjectFieldValues( $recordID, $inputData )
+	function setProjectFieldValues( $recordID, $inputData, $saveBlanks )
 	{
 		// Prepare the dataset for insert.
 		$data = [ $recordID => [] ];
@@ -1331,7 +1333,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Add the data to the record.
 		\REDCap::saveData( [ 'project_id' => ( defined('PROJECT_ID') ? PROJECT_ID : $_GET['pid'] ),
 		                     'dataFormat' => 'array', 'data' => $data, 'dateFormat' => 'YMD',
-		                     'overwriteBehavior' => 'normal' ] );
+		                     'overwriteBehavior' => ( $saveBlanks ? 'overwrite' : 'normal' ) ] );
 	}
 
 

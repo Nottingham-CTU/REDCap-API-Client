@@ -370,6 +370,15 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
     </td>
    </tr>
    <tr>
+    <td></td>
+    <td>
+     <input type="checkbox" name="http_response_save_blanks" value="1"<?php
+echo $connConfig['type'] == 'http' && isset( $connData['response_save_blanks'] )
+     ? ' checked' : '' ?>>
+     Allow blank values to overwrite existing data
+    </td>
+   </tr>
+   <tr>
     <td>Value if Error</td>
     <td>
      <input type="text" name="http_response_errval" value="<?php
@@ -405,6 +414,15 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
     <td></td>
     <td>
      <a href="#" id="wsdl_add_response"><i class="fas fa-plus-circle fs12"></i> Add response field</a>
+    </td>
+   </tr>
+   <tr>
+    <td></td>
+    <td>
+     <input type="checkbox" name="wsdl_response_save_blanks" value="1"<?php
+echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
+     ? ' checked' : '' ?>>
+     Allow blank values to overwrite existing data
     </td>
    </tr>
   </tbody>
