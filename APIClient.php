@@ -481,6 +481,50 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 
+	// Export project settings (e.g. for Project Deployment module).
+	public function exportProjectSettings( $projectID )
+	{
+		// Get the pack categories.
+		$querySetting = $this->query( 'WITH apic AS ( SELECT REGEXP_REPLACE(ems.`key`,' .
+		                              '\'^p[0-9]+-\',\'\') AS `key1`, `type`, ems.`value` ' .
+		                              'FROM redcap_external_module_settings ems ' .
+		                              'JOIN redcap_external_modules em ' .
+		                              'ON ems.external_module_id = em.external_module_id ' .
+		                              'WHERE em.directory_prefix = ? ' .
+		                              'AND (ems.`key` LIKE ? OR project_id = ?) ' .
+		                              'HAVING `key1` NOT IN( \'enabled\', \'conn-list\' ) ' .
+		                              'AND `key1` NOT LIKE \'conn-lastrun-%\' ), ' .
+		                              'keylbl AS ( SELECT SUBSTRING(apic.key1,13) AS keypart, ' .
+		                              'REGEXP_REPLACE( REPLACE( JSON_UNQUOTE( JSON_EXTRACT(' .
+		                              'apic.value,\'$.label\') ), \' \', \'-\' ), ' .
+		                              '\'[^A-Za-z0-9_-]\', \'\' ) AS labelkey '.
+		                              'FROM apic WHERE LEFT(apic.key1,12) = \'conn-config-\' ), ' .
+		                              'keylbl2 AS ( SELECT CONCAT(\'conn-config-\',keypart) ' .
+		                              'AS keypart, CONCAT(\'conn-config-\',labelkey) ' .
+		                              'AS labelkey FROM keylbl ' .
+		                              'UNION SELECT CONCAT(\'conn-data-\',keypart), ' .
+		                              'CONCAT(\'conn-data-\',labelkey) FROM keylbl ) ' .
+		                              'SELECT IFNULL((SELECT labelkey FROM keylbl2 ' .
+		                              'WHERE keypart = apic.key1 LIMIT 1), key1) AS `key`, ' .
+		                              'IF(key1 LIKE \'conn-%\', \'json\', `type`) AS `type`, ' .
+		                              'IF(key1 LIKE \'conn-data-%\', ' .
+		                              'JSON_REMOVE(`value`,\'$.auth_ph_value\'), `value`) ' .
+		                              'AS `value` FROM apic ' .
+		                              'ORDER BY if(`key` LIKE \'conn-%\', 1, 0 ), ' .
+		                              'REGEXP_REPLACE(`key`, \'^conn-(config|data)-\',\'\'), `key`',
+		                              [ preg_replace( '/_v[0-9.]+$/', '',
+		                                              $this->getModuleDirectoryName() ),
+		                                'p' . $projectID . '-%', $projectID ] );
+		$listSetting = [];
+		while ( $infoSetting = $querySetting->fetch_assoc() )
+		{
+			$listSetting[] = $infoSetting;
+		}
+		return $listSetting;
+	}
+
+
+
 	// Returns a list of events for the project.
 	function getEventList()
 	{
