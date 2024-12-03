@@ -869,6 +869,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			$listPlaceholders[ $connData['auth_ph_name'] ] = $connData['auth_ph_value'];
 		}
+		$listPlaceholders['REDCAP_APP_PATH_WEBROOT_FULL'] = APP_PATH_WEBROOT_FULL;
+		$listPlaceholders['REDCAP_APP_PATH_API_FULL'] = APP_PATH_WEBROOT_FULL . 'api/';
 		if ( ! isset( $connData['ph_name'] ) || ! is_array( $connData['ph_name'] ) )
 		{
 			$connData['ph_name'] = [];

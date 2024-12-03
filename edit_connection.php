@@ -345,6 +345,13 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
     </td>
    </tr>
    <tr>
+    <td>Predefined Placeholders</td>
+    <td>
+     REDCAP_APP_PATH_WEBROOT_FULL : <?php echo $module->escapeHTML(APP_PATH_WEBROOT_FULL); ?><br>
+     REDCAP_APP_PATH_API_FULL : <?php echo $module->escapeHTML(APP_PATH_WEBROOT_FULL); ?>api/
+    </td>
+   </tr>
+   <tr>
     <td></td>
     <td><a href="#" id="http_add_ph"><i class="fas fa-plus-circle fs12"></i> Add placeholder</a></td>
    </tr>
