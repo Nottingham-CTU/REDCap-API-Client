@@ -1348,13 +1348,30 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			else
 			{
 				// Multi-instance data.
+				$selectedInstance = $inputItem['instance'];
 				$totalInstances = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
 				                                                      ? PROJECT_ID : $_GET['pid'] ),
 				                                      'return_format' => 'array',
 				                                      'records' => $recordID ] );
-				$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
-				                                                [ $eventID ][ $repeatInstrument ] );
-				$selectedInstance = $inputItem['instance'];
+				if ( isset( $totalInstances[ $recordID ][ 'repeat_instances' ]
+				                                               [ $eventID ][ $repeatInstrument ] ) )
+				{
+					$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
+					                                            [ $eventID ][ $repeatInstrument ] );
+					if ( $selectedInstance == '+' )
+					{
+						$totalInstances++;
+						$selectedInstance = $totalInstances;
+					}
+				}
+				else
+				{
+					$totalInstances = 1;
+					if ( $selectedInstance == '+' )
+					{
+						$selectedInstance = 1;
+					}
+				}
 				if ( $selectedInstance < 1 )
 				{
 					$selectedInstance = $totalInstances + $selectedInstance;

@@ -92,7 +92,7 @@ function fieldSelector( $name, $incFunc = true )
 	$module->outputFieldDropdown( $name . '_field[]', '' );
 	echo addslashes( ob_get_clean() );
 	echo ' <input type="text" name="', $module->escapeHTML( $name ), '_inst[]"',
-		 ' pattern="^(0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
+		 ' pattern="^(\+|0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
 	if ( $incFunc )
 	{
 		echo ' <select name="', $name, '_func[]" style="margin-left:20px">',
