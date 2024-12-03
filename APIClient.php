@@ -922,54 +922,69 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			return;
 		}
 		// Use cURL to perform the HTTP request.
-		$curlCertBundle = $this->getSystemSetting('curl-ca-bundle');
-		$curl = curl_init( $url );
-		if ( $curlCertBundle != '' )
+		if ( $url == 'null:' )
 		{
-			curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
+			$httpResult = '';
+			$responseCode = 200;
 		}
-		elseif ( ini_get( 'curl.cainfo' ) == '' )
+		else
 		{
-			curl_setopt( $curl, CURLOPT_CAINFO, self::REDCAP_CAINFO );
+			$curlCertBundle = $this->getSystemSetting('curl-ca-bundle');
+			$curl = curl_init( $url );
+			if ( $curlCertBundle != '' )
+			{
+				curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
+			}
+			elseif ( ini_get( 'curl.cainfo' ) == '' )
+			{
+				curl_setopt( $curl, CURLOPT_CAINFO, self::REDCAP_CAINFO );
+			}
+			curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
+			$proxyHost = $this->getSystemSetting( 'http-proxy-host' );
+			$proxyPort = $this->getSystemSetting( 'http-proxy-port' );
+			if ( $proxyHost != '' && $proxyPort != '' )
+			{
+				curl_setopt( $curl, CURLOPT_PROXY, $proxyHost . ':' . $proxyPort );
+			}
+			curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
+			switch ( $method )
+			{
+				case 'get':
+					curl_setopt( $curl, CURLOPT_HTTPGET, true );
+					break;
+				case 'post':
+					curl_setopt( $curl, CURLOPT_POST, true );
+					curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
+					break;
+				case 'put':
+					curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'PUT');
+					curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
+					break;
+				case 'delete':
+					curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'DELETE');
+					break;
+			}
+			curl_setopt( $curl, CURLOPT_HTTPHEADER,
+			             explode( "\n", str_replace( "\r\n", "\n", $headers ) ) );
+			$httpResult = curl_exec( $curl );
+			$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		}
-		curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
-		$proxyHost = $this->getSystemSetting( 'http-proxy-host' );
-		$proxyPort = $this->getSystemSetting( 'http-proxy-port' );
-		if ( $proxyHost != '' && $proxyPort != '' )
-		{
-			curl_setopt( $curl, CURLOPT_PROXY, $proxyHost . ':' . $proxyPort );
-		}
-		curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
-		switch ( $method )
-		{
-			case 'get':
-				curl_setopt( $curl, CURLOPT_HTTPGET, true );
-				break;
-			case 'post':
-				curl_setopt( $curl, CURLOPT_POST, true );
-				curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
-				break;
-			case 'put':
-				curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'PUT');
-				curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
-				break;
-			case 'delete':
-				curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'DELETE');
-				break;
-		}
-		curl_setopt( $curl, CURLOPT_HTTPHEADER,
-		             explode( "\n", str_replace( "\r\n", "\n", $headers ) ) );
-		$httpResult = curl_exec( $curl );
-		$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		// Stop here if the response format is 'none', or if the HTTP response status is not 200.
 		$this->apiDebug( 'Response:' );
 		$this->apiDebug( '  Status: ' . $responseCode );
-		if ( ( $connData['response_format'] ?? '' ) == '' || $responseCode != 200 )
+		if ( $responseCode != 200 )
 		{
-			$this->apiDebug( $responseCode == 200 ? 'Response not needed.' : 'Bad response code.' );
+			$this->apiDebug( 'Bad response code.' );
 			return;
 		}
-		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $httpResult ) );
+		if ( ( $connData['response_format'] ?? '' ) == '' )
+		{
+			$this->apiDebug( '  Response not needed.' );
+		}
+		else
+		{
+			$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $httpResult ) );
+		}
 		// Prepare the return values (if any).
 		$httpReturn = [];
 		$this->apiDebug( 'New data:' );
