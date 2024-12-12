@@ -1015,7 +1015,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$httpResult = curl_exec( $curl );
 			$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		}
-		// Stop here if the response format is 'none', or if the HTTP response status is not 200.
+		// Stop here if the HTTP response status is not 200.
 		$this->apiDebug( 'Response:' );
 		$this->apiDebug( '  Status: ' . $responseCode );
 		if ( $responseCode != 200 )
@@ -1038,9 +1038,102 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			$connData['response_field'] = [];
 		}
+		// For CSV response format, convert to XML so XPath can be used.
+		// The data will be split into lines and fields.
+		if ( $connData['response_format'] == 'C' ) // CSV
+		{
+			$httpResultFP = fopen( 'php://memory', 'r+' );
+			fwrite( $httpResultFP, $httpResult );
+			rewind( $httpResultFP );
+			$httpResult = '<root>';
+			$httpResultHeaders = [];
+			while ( ( $httpResultLine = fgetcsv( $httpResultFP, null, ',', '"', '' ) ) !== false )
+			{
+				$httpResult .= '<line>';
+				foreach ( $httpResultLine as $i => $value )
+				{
+					$httpResult .= '<item';
+					if ( isset( $httpResultHeaders[$i] ) )
+					{
+						$httpResult .= ' header="';
+						$httpResult .= htmlspecialchars( $httpResultHeaders[$i],
+						                                 ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+						$httpResult .= '"';
+					}
+					$httpResult .= '>';
+					$httpResult .= htmlspecialchars( $value,
+					                                 ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+					$httpResult .= '</item>';
+				}
+				$httpResult .= '</line>';
+				if ( empty( $httpResultHeaders ) )
+				{
+					$httpResultHeaders = $httpResultLine;
+				}
+			}
+			$httpResult .= '</root>';
+		}
+		// For JSON response format, convert to XML so XPath can be used, but also retain the JSON
+		// so it can be searched by JSON path.
+		elseif ( $connData['response_format'] == 'J' ) // JSON
+		{
+			$httpResultJSON = $httpResult;
+			$fnConvJSON = function( $item ) use ( $fnConvJSON )
+			{
+				if ( $item === null )
+				{
+					return '';
+				}
+				if ( is_array( $item ) )
+				{
+					$output = '';
+					foreach ( $item as $i => $value )
+					{
+						$output .= '<item index="' . intval( $i ) . '">';
+						$output .= htmlspecialchars( $value,
+						                             ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+						$output .= '</item>';
+					}
+					return $output;
+				}
+				if( is_object( $item ) )
+				{
+					$output = '';
+					foreach ( $item as $key => $value )
+					{
+						$key = preg_replace( '/^[0-9]+/', '', $key );
+						$key = preg_replace( '/[^A-Za-z0-9_-]+/', '_', $key );
+						$output .= '<' . $key . '>';
+						$output .= htmlspecialchars( $value,
+						                             ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+						$output .= '</' . $key . '>';
+					}
+					return $output;
+				}
+				if ( is_bool( $item ) )
+				{
+					return $item ? '1' : '0';
+				}
+				return htmlspecialchars( $item, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+			};
+			$httpResult = '<root>' . $fnConvJSON( json_decode( $httpResult ) ) . '</root>';
+		}
+		// For plain text response format, convert to XML so XPath can be used.
+		// The data will be split into lines.
+		elseif ( $connData['response_format'] == 'P' ) // Plain text
+		{
+			$httpResult = htmlspecialchars( $httpResult, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+			$httpResult = str_replace( "\r\n", "\n", $httpResult );
+			$httpResult = explode( "\n", $httpResult );
+			$httpResult = implode( '</line><line>', $httpResult );
+			$httpResult = '<root><line>' . $httpResult . '</line></root>';
+		}
+		// For each response field...
 		for ( $i = 0; $i < count( $connData['response_field'] ); $i++ )
 		{
-			if ( $connData['response_field'][$i] == '' )
+			if ( $connData['response_field'][$i] == '' ||
+			     ( ( $connData['response_format'] ?? '' ) == '' &&
+			       $connData['response_type'][$i] == 'R' ) )
 			{
 				continue;
 			}
@@ -1060,12 +1153,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								str_replace( $placeholderName, $placeholderValue, $responsePath );
 						}
 					}
-					if ( $connData['response_format'] == 'J' ) // JSON
+					// Search a JSON response with JSON path.
+					if ( $connData['response_format'] == 'J' &&
+					     substr( $responsePath, 0, 1 ) == '$' )
 					{
 						$httpProcConn = $GLOBALS['conn'];
 						$httpProcQuery =
 							$httpProcConn->prepare( 'SELECT JSON_UNQUOTE(JSON_EXTRACT(?,?))' );
-						$httpProcQuery->bind_param( 'ss', $httpResult, $responsePath );
+						$httpProcQuery->bind_param( 'ss', $httpResultJSON, $responsePath );
 						$httpProcQuery->execute();
 						$httpProcResult = $httpProcQuery->get_result();
 						if ( $httpProcResult === false )
@@ -1090,7 +1185,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 							}
 						}
 					}
-					elseif ( $connData['response_format'] == 'X' ) // XML
+					// Search a response with XPath.
+					elseif ( in_array( $connData['response_format'], [ 'C', 'J', 'P', 'X' ] ) )
 					{
 						try
 						{

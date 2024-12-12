@@ -256,8 +256,7 @@ if ( \REDCap::isLongitudinal() )
     <td>
      <label>
       <input type="checkbox" name="conn_all_events" value="1"<?php
-	echo $connConfig['type'] == 'http' && isset( $connConfig['all_events'] )
-	     ? ' checked' : '' ?>>
+	echo isset( $connConfig['all_events'] ) ? ' checked' : '' ?>>
       Run separately for each event
      </label>
     </td>
@@ -339,6 +338,7 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
                               ? $module->escapeHTML( $connData['auth_ph_name'] ?? '' ) : '' ?>">
      <br>
      Raw value:
+     <br>
      <input type="text" name="http_auth_ph_value"
             value="<?php echo $connConfig['type'] == 'http'
                               ? $module->escapeHTML( $connData['auth_ph_value'] ?? '' ) : '' ?>">
@@ -361,9 +361,15 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
     <td>
      <select name="http_response_format">
       <option value="">None / Ignore</option>
+      <option value="C"<?php echo $connConfig['type'] == 'http' &&
+                                  $connData['response_format'] == 'C'
+                                  ? ' selected' : ''; ?>>CSV</option>
       <option value="J"<?php echo $connConfig['type'] == 'http' &&
                                   $connData['response_format'] == 'J'
                                   ? ' selected' : ''; ?>>JSON</option>
+      <option value="P"<?php echo $connConfig['type'] == 'http' &&
+                                  $connData['response_format'] == 'P'
+                                  ? ' selected' : ''; ?>>Plain text</option>
       <option value="X"<?php echo $connConfig['type'] == 'http' &&
                                   $connData['response_format'] == 'X'
                                   ? ' selected' : ''; ?>>XML</option>
