@@ -151,6 +151,21 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								}
 								$c = json_decode( $listSettings[ $settingID ]['config'], true );
 								$d = json_decode( $listSettings[ $settingID ]['data'], true );
+								if ( $c['type'] == 'http' )
+								{
+									unset( $d['auth_ph_value'] );
+								}
+								elseif ( $c['type'] == 'wsdl' )
+								{
+									for ( $i = 0; $i < count( $d['param_type'] ); $i++ )
+									{
+										if ( $d['param_type'][ $i ] == 'A' &&
+										     isset( $d['param_val'][ $i ] ) )
+										{
+											$d['param_val'][ $i ] = '';
+										}
+									}
+								}
 								$data['setting'] = $c['label'];
 								unset( $c['label'] );
 								$data['value'] = ( $c['active'] ? '' : '**INACTIVE** ' );
@@ -509,8 +524,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		                              'IF(key1 LIKE \'conn-%\', \'json\', `type`) AS `type`, ' .
 		                              'IF(key1 LIKE \'conn-data-%\', ' .
 		                              'JSON_REMOVE(`value`,\'$.auth_ph_value\'), `value`) ' .
-		                              'AS `value` FROM apic ' .
-		                              'ORDER BY if(`key` LIKE \'conn-%\', 1, 0 ), ' .
+		                              'AS `value`, IF(JSON_SEARCH(`value`,\'one\',\'A\',NULL,' .
+		                              '\'$.param_type[*]\') IS NULL, 0, 1) AS `has_authparam` ' .
+		                              'FROM apic ORDER BY if(`key` LIKE \'conn-%\', 1, 0 ), ' .
 		                              'REGEXP_REPLACE(`key`, \'^conn-(config|data)-\',\'\'), `key`',
 		                              [ preg_replace( '/_v[0-9.]+$/', '',
 		                                              $this->getModuleDirectoryName() ),
@@ -518,6 +534,19 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$listSetting = [];
 		while ( $infoSetting = $querySetting->fetch_assoc() )
 		{
+			if ( $infoSetting['has_authparam'] == 1 )
+			{
+				$infoSetting['value'] = json_decode( $infoSetting['value'], true );
+				foreach ( $infoSetting['value']['param_type'] as $i => $t )
+				{
+					if ( $t == 'A' )
+					{
+						$infoSetting['value']['param_val'][ $i ] = '';
+					}
+				}
+				$infoSetting['value'] = json_encode( $infoSetting['value'] );
+			}
+			unset( $infoSetting['has_authparam'] );
 			$listSetting[] = $infoSetting;
 		}
 		return $listSetting;
