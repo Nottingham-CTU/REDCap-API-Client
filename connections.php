@@ -71,9 +71,11 @@ if ( count( $listConnections ) > 0 )
 ?>
 </table>
 <ul style="margin-top:25px">
- <li>
+ <li style="padding-bottom:5px">
   <a href="<?php echo $module->getUrl( 'api_test.php' ); ?>" target="_blank">API Connection Debugger</a>
  </li>
+ <li><a href="<?php echo $module->getUrl( 'export.php' ); ?>">Export API Connections</a></li>
+ <li><a href="<?php echo $module->getUrl( 'import.php' ); ?>">Import API Connections</a></li>
 </ul>
 <?php
 }

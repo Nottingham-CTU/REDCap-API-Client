@@ -409,11 +409,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Add a new connection, with the specified configuration and data.
-	function addConnection( $connConfig, $connData )
+	function addConnection( $connConfig, $connData, $connID = '' )
 	{
 		$projectID = $this->getProjectID();
-		// Generate a new connection ID.
-		$connID = '';
+		// Generate a new connection ID if required.
 		$listIDs = $this->getSystemSetting( "p$projectID-conn-list" );
 		if ( $listIDs === null )
 		{
