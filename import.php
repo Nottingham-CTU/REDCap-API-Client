@@ -20,7 +20,9 @@ $listConfigFields = [ 'type' => [ 'Connection type', 'strtoupper' ],
                       'active' => [ 'Connection is active',
                                     function ($v) { return ($v === null ? 'Production'
                                                                         : ($v ? 'Yes' : 'No')); } ],
-                      'trigger' => 'Connection trigger',
+                      'trigger' => [ 'Connection trigger',
+                                     function ($v) { return ( $v == 'R' ? 'Record save'
+                                                                        : 'Schedule' ); } ],
                       'event' => 'Limit to event', 'form' => 'Limit to form',
                       'cron_min' => 'Schedule - min', 'cron_hr' => 'Schedule - hr',
                       'cron_day' => 'Schedule - day', 'cron_mon' => 'Schedule - mon',
