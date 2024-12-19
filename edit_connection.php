@@ -30,14 +30,14 @@ $connData = $module->getConnectionData( $connID );
 if ( ! empty( $_POST ) )
 {
 	// If indicated, check conditional logic.
-	if ( isset( $_POST[ 'checklogic' ] ) )
+	if ( isset( $_POST['checklogic'] ) )
 	{
 		header( 'Content-Type: application/json' );
 		echo \LogicTester::isValid( $_POST['checklogic'] ) ? 'true' : 'false';
 		exit;
 	}
 	// If indicated, delete the connection.
-	if ( isset( $_POST[ 'conn_delete' ] ) )
+	if ( isset( $_POST['conn_delete'] ) )
 	{
 		$module->deleteConnection( $connID );
 		header( 'Location: ' . $module->getUrl( 'connections.php' ) );
@@ -53,7 +53,7 @@ if ( ! empty( $_POST ) )
 		{
 			if ( $submitVar == 'conn_active' )
 			{
-				$submitConfig[ 'active' ] = ( $submitVal == 'Y' );
+				$submitConfig['active'] = ( $submitVal == 'P' ? null : ( $submitVal == 'Y' ) );
 			}
 			else
 			{
@@ -185,12 +185,17 @@ foreach ( $module->getConnectionTypes() as $connTypeID => $connTypeName )
     <td>
      <label>
       <input type="radio" name="conn_active" value="Y" required<?php
-		echo ($connConfig['active'] ?? true) ? ' checked' : ''; ?>> Yes
+		echo ($connConfig['active'] === true) ? ' checked' : ''; ?>> Yes
+     </label>
+     <br>
+     <label>
+      <input type="radio" name="conn_active" value="P" required<?php
+		echo ($connConfig['active'] === null) ? ' checked' : ''; ?>> In production only
      </label>
      <br>
      <label>
       <input type="radio" name="conn_active" value="N" required<?php
-		echo ($connConfig['active'] ?? true) ? '' : ' checked'; ?>> No
+		echo ($connConfig['active'] === false) ? ' checked' : ''; ?>> No
      </label>
     </td>
    </tr>

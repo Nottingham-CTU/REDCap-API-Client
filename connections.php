@@ -49,6 +49,12 @@ if ( count( $listConnections ) > 0 )
 <?php
 	foreach ( $listConnections as $connID => $infoConnection )
 	{
+		$isActive = $infoConnection['active'] === null ? 'Production only'
+		                                               : ($infoConnection['active'] ? 'Yes' : 'No');
+		$triggerIcon = $infoConnection['trigger'] == 'R' ? 'far fa-floppy-disk'
+		                                                 : 'far fa-clock';
+		$triggerLbl = $infoConnection['trigger'] == 'R' ? 'Record save'
+		                                                : 'Schedule';
 ?>
  <tr>
   <td style="text-align:left">
@@ -58,7 +64,8 @@ if ( count( $listConnections ) > 0 )
    <br>
    <span style="font-size:90%">
     <b>Type:</b> <?php echo $module->getConnectionTypes()[$infoConnection['type']]; ?> &nbsp;|&nbsp;
-    <b>Active:</b> <?php echo $infoConnection['active'] ? 'Yes' : 'No', "\n"; ?>
+    <b>Active:</b> <?php echo $isActive; ?> &nbsp;|&nbsp;
+    <i class="<?php echo $triggerIcon; ?>" title="<?php echo $triggerLbl; ?>"></i>
    </span>
   </td>
   <td style="width:90px;text-align:center">

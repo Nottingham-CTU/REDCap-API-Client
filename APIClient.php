@@ -168,7 +168,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								}
 								$data['setting'] = $c['label'];
 								unset( $c['label'] );
-								$data['value'] = ( $c['active'] ? '' : '**INACTIVE** ' );
+								$data['value'] = ( $c['active'] === false ? '**INACTIVE** ' : '' );
 								unset( $c['active'] );
 								$data['value'] .= '[' . strtoupper( $c['type'] ) . '] ';
 								unset( $c['type'] );
@@ -210,7 +210,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		foreach ( $listConnections as $connID => $connConfig )
 		{
 			// Check that the connection is active and triggered on record save.
-			if ( ! $connConfig['active'] || $connConfig['trigger'] != 'R' )
+			if ( ! $this->isActive( $connConfig['active'] ) || $connConfig['trigger'] != 'R' )
 			{
 				continue;
 			}
@@ -294,6 +294,12 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				     ( $cronDetails['day'] == '*' || $cronDetails['day'] == $testDay ) &&
 				     ( $cronDetails['mon'] == '*' || $cronDetails['mon'] == $testMonth ) &&
 				     ( $cronDetails['dow'] == '*' || $cronDetails['dow'] == $testDoW ) )
+			$connConfig = $this->getConnectionConfig( $connID );
+			// Check the connection is active.
+			if ( ! $this->isActive( $connConfig['active'] ) )
+			{
+				continue;
+			}
 				{
 					$isMatch = true;
 				}
@@ -308,7 +314,6 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", $execTime );
 			// For each record (& each event if applicable)...
-			$connConfig = $this->getConnectionConfig( $connID );
 			$connData = $this->getConnectionData( $connID );
 			$listEvents = [ null ];
 			if ( isset( $connConfig['all_events'] ) )
@@ -437,7 +442,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Set the connection configuration and data.
 		$this->setSystemSetting( "p$projectID-conn-config-$connID", json_encode( $connConfig ) );
 		$this->setSystemSetting( "p$projectID-conn-data-$connID", json_encode( $connData ) );
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", time() );
 		}
@@ -794,6 +799,31 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			return null;
 		}
 		return $userRights[ 'role_name' ];
+	}
+
+
+
+	// Check if a connection should be active given it's active setting.
+	// If true/false, returns that value. If null, returns true if production, false otherwise.
+	function isActive( $active = null )
+	{
+		static $serverProduction = null;
+		if ( $active === true || $active === false )
+		{
+			return $active;
+		}
+		if ( $serverProduction === null )
+		{
+			$querySrvProd = $this->query( 'SELECT 1 FROM redcap_config ' .
+			                              'WHERE field_name = \'is_development_server\' ' .
+			                              'AND `value` = \'0\'', [] );
+			$serverProduction = is_array( $querySrvProd->fetch_assoc() );
+		}
+		if ( $serverProduction === false || $this->getProjectId() === null )
+		{
+			return false;
+		}
+		return $this->getProjectStatus() == 'PROD';
 	}
 
 
@@ -1529,7 +1559,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function updateCronList( $projectID, $connID, $connConfig )
 	{
 		// Get the cron details, if applicable.
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			$cronDetails = [];
 			foreach ( [ 'min', 'hr', 'day', 'mon', 'dow' ] as $t )
@@ -1548,7 +1578,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			$listCrons = json_decode( $listCrons, true );
 		}
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			$listCrons["$projectID.$connID"] = $cronDetails;
 		}
@@ -1599,8 +1629,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$listConnections = $this->getConnectionList();
 			foreach ( $listConnections as $connID => $connConfig )
 			{
-				if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+				if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 				{
+					$cronDetails = [];
+					foreach ( [ 'min', 'hr', 'day', 'mon', 'dow' ] as $t )
+					{
+						$cronDetails[$t] = $connConfig["cron_$t"];
+					}
 					$listCrons["$projectID.$connID"] = $cronDetails;
 				}
 			}
@@ -1618,7 +1653,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$projectID = $this->getProjectID();
 		$this->setSystemSetting( "p$projectID-conn-config-$connID", json_encode( $connConfig ) );
 		$this->setSystemSetting( "p$projectID-conn-data-$connID", json_encode( $connData ) );
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			if ( $this->getSystemSetting( "p$projectIDconn-lastrun-$connID" ) == null )
 			{
