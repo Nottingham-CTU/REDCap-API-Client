@@ -75,9 +75,12 @@ in the project menu under *External Modules*.
   The schedule setting follows UNIX cron format. Enter values as follows:
   * Minute of the hour (0-59)
   * Hour of the day (0-23)
-  * Day of the month (1-31, or enter \* to match all days)
-  * Month (1-12, or enter \* to match all months)
-  * Day of the week (0-6, 0 = Sunday, 6 = Saturday, or enter \* to match all days)
+  * Day of the month (1-31)
+  * Month (1-12)
+  * Day of the week (0-6, 0 = Sunday, 6 = Saturday)
+  - For any of the parameters, you can enter `*` to match all, or use ranges such as `3-5`, slashes
+    to specify step (e.g. `5/10` for every 10th starting from 5), or separate several values with
+    commas.
 * **Check conditional logic** &ndash; Optionally enter REDCap conditional logic here. If conditional
   logic is entered, the connection will only be triggered on records which satisfy the condition.
 

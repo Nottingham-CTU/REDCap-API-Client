@@ -233,23 +233,31 @@ else
    <tr class="conn_field_cron">
     <td>Schedule</td>
     <td>
-     <input type="text" name="conn_cron_min" style="width:50px" placeholder="min"
-            title="Minutes after the hour" pattern="[1-5]?[0-9]" value="<?php
+     <input type="text" name="conn_cron_min" style="width:6em" placeholder="minute"
+            pattern="(?!,)((^|,)([1-5]?[0-9](-[1-5]?[0-9])?|\*)(\/[1-5]?[0-9])?)+"
+            title="Minutes after the hour" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_min'] ); ?>">
-     <input type="text" name="conn_cron_hr" style="width:50px" placeholder="hr"
-            title="Hour of the day" pattern="1?[0-9]|2[0-3]" value="<?php
+     <input type="text" name="conn_cron_hr" style="width:6em" placeholder="hour"
+            pattern="(?!,)((^|,)((1?[0-9]|2[0-3])(-(1?[0-9]|2[0-3]))?|\*)(\/(1?[0-9]|2[0-3]))?)+"
+            title="Hour of the day (* = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_hr'] ); ?>">
-     <input type="text" name="conn_cron_day" style="width:50px" placeholder="day"
-            title="Day of the month (* = all)" pattern="[1-9]|[12][0-9]|3[01]|\*" value="<?php
+     <input type="text" name="conn_cron_day" style="width:6em" placeholder="day"
+            pattern="(?!,)((^|,)(([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?|\*)(\/([1-9]|[12][0-9]|3[01]))?)+"
+            title="Day of the month (* = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_day'] ); ?>">
-     <input type="text" name="conn_cron_mon" style="width:50px" placeholder="mon"
-            title="Month (* = all)" pattern="[1-9]|1[012]|\*" value="<?php
+     <input type="text" name="conn_cron_mon" style="width:6em" placeholder="month"
+            pattern="(?!,)((^|,)(([1-9]|1[012])(-([1-9]|1[012]))?|\*)(\/([1-9]|1[012]))?)+"
+            title="Month (* = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_mon'] ); ?>">
-     <input type="text" name="conn_cron_dow" style="width:50px" placeholder="dow"
-            title="Day of week (0 = Sunday, 6 = Saturday, * = all)" pattern="[0-6]|\*" value="<?php
+     <input type="text" name="conn_cron_dow" style="width:6em" placeholder="dow"
+            pattern="(?!,)((^|,)([0-6](-[0-6])?|\*)(\/[0-6])?)+"
+            title="Day of week (0 = Sunday, 6 = Saturday, * = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_dow'] ); ?>">
      <br>
-     (Schedule time is approximate)
+     Enter schedule in <a href="https://en.wikipedia.org/wiki/Cron" target="_blank">crontab</a> format.
+     <br>
+     The schedule time should be considered to be approximate.<br>
+     The connection is not guaranteed to run at precisely the scheduled time.
     </td>
    </tr>
 <?php

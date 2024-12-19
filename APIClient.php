@@ -262,49 +262,83 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	{
 		$oldContext = $_GET['pid'];
 		$execTime = time();
+		$execMinute = date( 'i', $execTime );
+		$execHour = date( 'G', $execTime );
 		$execDay = date( 'j', $execTime );
 		$execMonth = date( 'n', $execTime );
 		$execYear = date( 'Y', $execTime );
+		$earliestTime = $execTime - ( 86400 * 14 );
 		$listCrons = $this->getSystemSetting( 'cronlist' );
 		if ( $listCrons === null )
 		{
 			return;
 		}
+		// For each cron...
 		$listCrons = json_decode( $listCrons, true );
 		foreach ( $listCrons as $prConnID => $cronDetails )
 		{
 			// Get the project and connection ID for the cron, and set the project context.
 			list( $projectID, $connID ) = explode( '.', $prConnID, 2 );
 			$_GET['pid'] = $projectID;
-			// Get the cron configuration, and test recent days for a match.
-			$testDay = $execDay + 1;
-			$testMonth = $execMonth;
-			$testYear = $execYear;
-			$isMatch = false;
-			do
-			{
-				$testDay--;
-				$testTime = mktime( $cronDetails['hr'], $cronDetails['min'], 0,
-				                    $testMonth, $testDay, $testYear );
-				$testDay = date( 'j', $testTime );
-				$testMonth = date( 'n', $testTime );
-				$testYear = date( 'Y', $testTime );
-				$testDoW = date( 'w', $testTime );
-				if ( $testTime <= $execTime &&
-				     ( $cronDetails['day'] == '*' || $cronDetails['day'] == $testDay ) &&
-				     ( $cronDetails['mon'] == '*' || $cronDetails['mon'] == $testMonth ) &&
-				     ( $cronDetails['dow'] == '*' || $cronDetails['dow'] == $testDoW ) )
 			$connConfig = $this->getConnectionConfig( $connID );
 			// Check the connection is active.
 			if ( ! $this->isActive( $connConfig['active'] ) )
 			{
 				continue;
 			}
+			$isMatch = null;
+			// Test the current and previous month, stop if neither match.
+			if ( ! $this->matchCronPart( $cronDetails['mon'], $execMonth ) )
+			{
+				$testMonth = date( 'n', mktime( 0, 0, 0, $execMonth, 0, $execYear ) );
+				if ( ! $this->matchCronPart( $cronDetails['mon'], $testMonth ) )
 				{
-					$isMatch = true;
+					$isMatch = false;
 				}
 			}
-			while ( ! $isMatch && $testTime > $execTime - ( 86400 * 7 ) );
+			// If at least one of the months match, proceed to test days.
+			// For a day to match, its day (of month), month and day of week must match.
+			if ( $isMatch !== false )
+			{
+				$isMatch = false;
+				$testDay = $execDay + 1;
+				$testMonth = $execMonth;
+				$testYear = $execYear;
+				do
+				{
+					$testDay--;
+					$testTime = mktime( 23, 59, 0, $testMonth, $testDay, $testYear );
+					if ( $testTime > $execTime )
+					{
+						$testTime = mktime( $execHour, $execMinute, 0,
+						                    $testMonth, $testDay, $testYear );
+					}
+					$testDay = date( 'j', $testTime );
+					$testMonth = date( 'n', $testTime );
+					$testYear = date( 'Y', $testTime );
+					$testDoW = date( 'w', $testTime );
+					if ( $this->matchCronPart( $cronDetails['day'], $testDay ) &&
+					     $this->matchCronPart( $cronDetails['mon'], $testMonth ) &&
+					     $this->matchCronPart( $cronDetails['dow'], $testDoW ) )
+					{
+						// The day matches, now attempt to match the hour and minute.
+						$testTime += 60;
+						do
+						{
+							$testTime -= 60;
+							$testHour = date( 'G', $testTime );
+							$testMinute = date( 'i', $testTime );
+							if ( $this->matchCronPart( $cronDetails['hr'], $testHour ) &&
+							     $this->matchCronPart( $cronDetails['min'], $testMinute ) )
+							{
+								$isMatch = true;
+							}
+						}
+						while ( ! $isMatch && ( $testHour > 0 || $testMinute > 0 ) );
+					}
+				}
+				while ( ! $isMatch && $testTime > $execTime - $earliestTime );
+			}
 			// If there is not a match, or if the most recent matching run time is equal or
 			// prior to the last run time, proceed to the next cron item.
 			if ( ! $isMatch ||
@@ -873,6 +907,33 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$url .= $urlVariable . '=' . rawurlencode( $value );
 		}
 		return $url;
+	}
+
+
+
+	// Test a crontab part against a value for a match.
+	function matchCronPart( $cronPart, $value )
+	{
+		if ( $cronPart == '*' )
+		{
+			return true;
+		}
+		foreach ( explode( ',', $cronPart ) as $subPart )
+		{
+			list( $range, $step ) = ( strpos( $subPart, '/' ) !== false )
+			                        ? explode( '/', $subPart ) : [ $subPart, 1 ];
+			if ( $range == '*' )
+			{
+				$range = '0-59';
+			}
+			list( $start, $end ) = ( strpos( $range, '-' ) !== false )
+			                       ? explode( '-', $range ) : [ $range, $range ];
+			if ( $value >= $start && $value <= $end && ( $value - $start ) % $step == 0 )
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 
