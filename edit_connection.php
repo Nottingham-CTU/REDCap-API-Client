@@ -352,9 +352,10 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
      <br>
      Raw value:
      <br>
-     <input type="text" name="http_auth_ph_value"
+     <input type="password" name="http_auth_ph_value"
             value="<?php echo $connConfig['type'] == 'http'
-                              ? $module->escapeHTML( $connData['auth_ph_value'] ?? '' ) : '' ?>">
+                              ? $module->escapeHTML( $connData['auth_ph_value'] ?? '' ) : '' ?>"
+            onfocus="$(this).attr('type','text')" onblur="$(this).attr('type','password')">
     </td>
    </tr>
    <tr>
@@ -589,6 +590,16 @@ echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
        var vSpan = vNew.find('span')
        vSpan.eq(0).css('display', ( vOption == 'C' || vOption == 'A' ) ? '' : 'none')
        vSpan.eq(1).css('display', vOption == 'F' ? '' : 'none')
+       vNew.find('input[name="wsdl_param_val[]"]')
+         .attr('type', ( vOption == 'A' ? 'password' : 'text' ))
+         .on('focus', function(){ $(this).attr('type', 'text') })
+         .on('blur', function()
+         {
+           if ( $(this).closest('tr').find('select[name="wsdl_param_type[]"]').val() == 'A' )
+           {
+             $(this).attr('type', 'password')
+           }
+         })
      })
      vNew.insertAfter( vPrev )
      return false
