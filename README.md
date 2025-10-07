@@ -153,7 +153,8 @@ parameters as required.
 
 ### Response Fields
 
-*For HTTP/REST connections, you will need to specify the* response format, *which can be one of:*
+*For HTTP/REST connections, you will need to specify the* status codes to accept *(as a comma
+separated list of 3 digit status codes, default=200) and the* response format, *which can be one of:*
 * *None/Ignore* &ndash; The request is sent, but the response (if any) is ignored and response
   fields set to use a response value will have no effect.
 * *CSV* &ndash; Comma Separated Values (delimiter = `,` and enclosure = `"`).

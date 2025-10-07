@@ -1134,10 +1134,12 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$httpResult = curl_exec( $curl );
 			$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		}
-		// Stop here if the HTTP response status is not 200.
+		// Stop here if the HTTP response status is not an accepted status code.
+		$listAcceptedCodes = isset( $connData['response_status_codes'] )
+		                     ? explode( ',', $connData['response_status_codes'] ) : ['200'];
 		$this->apiDebug( 'Response:' );
 		$this->apiDebug( '  Status: ' . $responseCode );
-		if ( $responseCode != 200 )
+		if ( ! in_array( $responseCode, $listAcceptedCodes ) )
 		{
 			$this->apiDebug( 'Bad response code.' );
 			return;

@@ -371,6 +371,15 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
    </tr>
    <tr><th colspan="2">Response Fields</th></tr>
    <tr>
+    <td>Accept Response Status Codes</td>
+    <td>
+     <input type="text" name="http_response_status_codes" value="<?php
+echo $connConfig['type'] == 'http' && isset( $connData['response_status_codes'] )
+     ? $connData['response_status_codes'] : '200' ?>" pattern="[245][0-9]{2}(,[245][0-9]{2})*"
+            required title="Comma separated list of status codes e.g. '200,404'">
+    </td>
+   </tr>
+   <tr>
     <td>Response Format</td>
     <td>
      <select name="http_response_format">
