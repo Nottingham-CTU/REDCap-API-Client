@@ -1199,7 +1199,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		elseif ( $connData['response_format'] == 'J' ) // JSON
 		{
 			$httpResultJSON = $httpResult;
-			$fnConvJSON = function( $item ) use ( $fnConvJSON )
+			$fnConvJSON = function( $item ) use ( &$fnConvJSON )
 			{
 				if ( $item === null )
 				{
@@ -1211,8 +1211,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					foreach ( $item as $i => $value )
 					{
 						$output .= '<item index="' . intval( $i ) . '">';
-						$output .= htmlspecialchars( $value,
-						                             ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+						$output .= $fnConvJSON( $value );
 						$output .= '</item>';
 					}
 					return $output;
@@ -1225,8 +1224,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 						$key = preg_replace( '/^[0-9]+/', '', $key );
 						$key = preg_replace( '/[^A-Za-z0-9_-]+/', '_', $key );
 						$output .= '<' . $key . '>';
-						$output .= htmlspecialchars( $value,
-						                             ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+						$output .= $fnConvJSON( $value );
 						$output .= '</' . $key . '>';
 					}
 					return $output;
@@ -1237,7 +1235,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				}
 				return htmlspecialchars( $item, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
 			};
-			$httpResult = '<root>' . $fnConvJSON( json_decode( $httpResult ) ) . '</root>';
+			$httpResult = $fnConvJSON( json_decode( '{"root":' . $httpResult . '}' ) );
 		}
 		// For plain text response format, convert to XML so XPath can be used.
 		// The data will be split into lines.
