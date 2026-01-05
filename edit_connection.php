@@ -346,13 +346,13 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
     <td>
      Name:
      <br>
-     <input type="text" name="http_auth_ph_name"
+     <input type="text" name="http_auth_ph_name" autocomplete="off"
             value="<?php echo $connConfig['type'] == 'http'
                               ? $module->escapeHTML( $connData['auth_ph_name'] ?? '' ) : '' ?>">
      <br>
      Raw value:
      <br>
-     <input type="password" name="http_auth_ph_value"
+     <input type="password" name="http_auth_ph_value" autocomplete="new-password"
             value="<?php echo $connConfig['type'] == 'http'
                               ? $module->escapeHTML( $connData['auth_ph_value'] ?? '' ) : '' ?>"
             onfocus="$(this).attr('type','text')" onblur="$(this).attr('type','password')">
