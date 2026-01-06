@@ -548,7 +548,8 @@ echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
                   'Name:<br><input type="text" name="http_ph_name[]"><br>Value:<br>' +
                   '<?php fieldSelector('http_ph'); ?><br>Format:<br>' +
                   '<select name="http_ph_format[]"><option value="">Raw value</option>' +
-                  '<option value="base64">Base 64</option><option value="url">URL encode</option>' +
+                  '<option value="base64">Base 64</option><option value="json">JSON string</option>' +
+                  '<option value="url">URL encode</option><option value="xml">XML encode</option>' +
                   '</select></td></tr>')
      vNew.insertAfter( vPrev )
      return false

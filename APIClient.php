@@ -1081,9 +1081,20 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				$placeholderValue = base64_encode( $placeholderValue );
 			}
+			elseif ( $connData['ph_format'][$i] == 'json' )
+			{
+				$placeholderValue = json_encode( strval( $placeholderValue ),
+				                                 JSON_UNESCAPED_SLASHES );
+			}
 			elseif ( $connData['ph_format'][$i] == 'url' )
 			{
 				$placeholderValue = rawurlencode( $placeholderValue );
+			}
+			elseif ( $connData['ph_format'][$i] == 'xml' )
+			{
+				$placeholderValue = htmlspecialchars( $placeholderValue,
+				                                      ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1,
+				                                      'UTF-8' );
 			}
 			// Add the placeholder name and formatted value to the list.
 			$listPlaceholders[ $connData['ph_name'][$i] ] = $placeholderValue;
