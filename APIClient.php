@@ -1100,22 +1100,60 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$listPlaceholders[ $connData['ph_name'][$i] ] = $placeholderValue;
 		}
 		// Search/replace the placeholder names with the values.
+		if ( isset( $connData['post_as_form'] ) )
+		{
+			$body = explode( "\n", str_replace( "\r\n", "\n", $body ) );
+			foreach ( $body as $i => $bodyItem )
+			{
+				if ( strpos( $bodyItem, '=' ) === false )
+				{
+					unset( $body[$i] );
+					continue;
+				}
+				$body[$i] = explode( '=', $bodyItem, 2 );
+			}
+			$body = array_values( $body );
+		}
 		$this->apiDebug( 'Placeholders:' );
 		foreach ( $listPlaceholders as $placeholderName => $placeholderValue )
 		{
 			$placeholderValue = array_reduce( [ $placeholderValue ],
 			                                  function( $c, $i ) { return $c . $i; }, '' );
-			$this->apiDebug( '  ' . $placeholderName . ' => ' . $placeholderValue );
+			$this->apiDebug( '  ' . $placeholderName . ' => ' .
+			                 str_replace( "\n",
+			                              "\n" . str_repeat( ' ', strlen( $placeholderName ) + 6 ),
+			                              $placeholderValue ) );
 			$url = str_replace( $placeholderName, $placeholderValue, $url );
 			$headers = str_replace( $placeholderName, $placeholderValue, $headers );
-			$body = str_replace( $placeholderName, $placeholderValue, $body );
+			if ( isset( $connData['post_as_form'] ) )
+			{
+				foreach ( $body as $i => $bodyItem )
+				{
+					$body[$i][0] = str_replace( $placeholderName, $placeholderValue, $body[$i][0] );
+					$body[$i][1] = str_replace( $placeholderName, $placeholderValue, $body[$i][1] );
+				}
+			}
+			else
+			{
+				$body = str_replace( $placeholderName, $placeholderValue, $body );
+			}
+		}
+		if ( isset( $connData['post_as_form'] ) )
+		{
+			foreach ( $body as $i => $bodyItem )
+			{
+				$bodyItem[0] = rawurlencode( $bodyItem[0] );
+				$bodyItem[1] = rawurlencode( $bodyItem[1] );
+				$body[$i] = implode( '=', $bodyItem );
+			}
+			$body = implode( '&', $body );
 		}
 		$this->apiDebug( 'Parameters (post-placeholder replacement):' );
 		$this->apiDebug( '  HTTP URL: ' . $url );
 		$this->apiDebug( '  Headers: ' . str_replace( "\n", "\n           ", $headers ) );
 		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $body ) );
 		// Check that the URL is valid.
-		if ( ! $this->validateURL( $url ) )
+		if ( $url != 'null:' && ! $this->validateURL( $url ) )
 		{
 			$this->apiDebug( 'Invalid or disallowed URL.' );
 			return;

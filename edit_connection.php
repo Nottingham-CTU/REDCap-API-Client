@@ -62,6 +62,10 @@ if ( ! empty( $_POST ) )
 		}
 		elseif ( substr( $submitVar, 0, strlen( $submitTypePrefix ) ) == $submitTypePrefix )
 		{
+			if ( $submitVar == 'http_post_as_form' && $_POST['http_method'] != 'post' )
+			{
+				continue;
+			}
 			$submitData[ substr( $submitVar, strlen( $submitTypePrefix ) ) ] = $submitVal;
 		}
 	}
@@ -281,8 +285,8 @@ if ( \REDCap::isLongitudinal() )
    <tr>
     <td>Check conditional logic</td>
     <td>
-     <textarea name="conn_condition" spellcheck="false"
-               style="height:75px;max-width:95%;font-family:monospace;white-space:pre"><?php
+     <textarea name="conn_condition" spellcheck="false" rows="3"
+               style="height:unset;max-width:95%;font-family:monospace;white-space:pre"><?php
 echo $connConfig['condition'] ?? ''; ?></textarea>
      <span id="condition_msg" style="color:#c00"></span>
     </td>
@@ -311,21 +315,27 @@ echo $connConfig['condition'] ?? ''; ?></textarea>
                                        $connData['method'] == 'delete'
                                        ? ' selected' : ''; ?>>DELETE</option>
      </select>
+     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+     <label class="http_post_as_form" style="display:none">
+      <input type="checkbox" name="http_post_as_form" value="1"<?php
+	echo isset( $connData['post_as_form'] ) ? ' checked' : '' ?>>
+      Form field mode
+     </label>
     </td>
    </tr>
    <tr>
     <td>Request Headers</td>
     <td>
-     <textarea name="http_headers" spellcheck="false"
-               style="height:200px;max-width:95%;font-family:monospace;white-space:pre"><?php
+     <textarea name="http_headers" spellcheck="false" rows="3"
+               style="height:unset;max-width:95%;font-family:monospace;white-space:pre"><?php
 echo $connData['headers'] ?? ''; ?></textarea>
     </td>
    </tr>
    <tr>
     <td>Request Body</td>
     <td>
-     <textarea name="http_body" spellcheck="false"
-               style="height:300px;max-width:95%;font-family:monospace;white-space:pre"><?php
+     <textarea name="http_body" spellcheck="false" rows="3"
+               style="height:unset;max-width:95%;font-family:monospace;white-space:pre"><?php
 echo $connData['body'] ?? ''; ?></textarea>
     </td>
    </tr>
@@ -526,6 +536,13 @@ echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
              }, 'json')
    })
    $('input[name="conn_trigger"]:checked').click()
+   $('textarea[name="conn_condition"]').on( 'change keyup', function()
+   {
+     var vConditionField = $('textarea[name="conn_condition"]')
+     var vLines = vConditionField.val().split('\n').length
+     vConditionField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="conn_condition"]').change()
    $('select[name="http_method"]').change( function()
    {
      var vOption = $('select[name="http_method"]').val()
@@ -533,8 +550,48 @@ echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
      var vBodyField = $('textarea[name="http_body"]')
      vBodyField.prop('disabled', vHide)
      vBodyField.parent().parent().css('display', vHide ? 'none' : '')
+     $('.http_post_as_form').css('display', ( vOption == 'post') ? '' : 'none')
+     if ( vOption != 'post' )
+     {
+       $('textarea[name="http_headers"]').prop('readonly',false)
+       $('input[name="http_post_as_form"]').prop('checked',false)
+     }
    })
    $('select[name="http_method"]').change()
+   $('input[name="http_post_as_form"]').click( function()
+   {
+     if ( $('input[name="http_post_as_form"]').prop('checked') )
+     {
+       simpleDialog('In this mode, instead of entering the raw request body, you can enter each ' +
+                    'field on its own line, formatted like the example below:<br><pre style=' +
+                    '"margin-top:6px">field1=value1\r\nfield2=value2\r\nfield3=value3</pre><br>' +
+                    'Field names and values will be automatically encoded, raw placeholder values' +
+                    ' can be safely used in the request body in this mode (but placeholder values' +
+                    ' may need to be encoded if used elsewhere).',
+                    'Form field mode')
+     }
+     var vHeadersField = $('textarea[name="http_headers"]')
+     var vHeadersData = vHeadersField.val()
+     vHeadersData = vHeadersData.replace(/(?<=^|\n)Content-Type:.*?(\r?\n|$)/gi,'')
+     vHeadersData = "Content-Type: application/x-www-form-urlencoded\r\n" + vHeadersData
+     vHeadersField.val( vHeadersData )
+     var vLines = vHeadersField.val().split('\n').length
+     vHeadersField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="http_headers"]').on( 'change keyup', function()
+   {
+     var vHeadersField = $('textarea[name="http_headers"]')
+     var vLines = vHeadersField.val().split('\n').length
+     vHeadersField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="http_headers"]').change()
+   $('textarea[name="http_body"]').on( 'change keyup', function()
+   {
+     var vBodyField = $('textarea[name="http_body"]')
+     var vLines = vBodyField.val().split('\n').length
+     vBodyField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="http_body"]').change()
    $('#http_add_ph').click( function()
    {
      var vPrev = $('#http_add_ph').parent().parent().prev()
