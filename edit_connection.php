@@ -100,6 +100,7 @@ function fieldSelector( $name, $incFunc = true )
 		     '<option value="date">Format date</option>',
 		     '<option value="getline">Get line</option>',
 		     '<option value="concatlines">Concatenate lines</option>',
+		     '<option value="mime">File MIME type</option>',
 		     '</select> <input type="text" style="width:90px" name="', $name, '_func_args[]"',
 		     ' title="Enter function parameters">';
 	}

@@ -703,6 +703,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 		}
 
+		// Get the field type.
+		$fieldType = \REDCap::getDataDictionary( ( defined('PROJECT_ID')
+		                                           ? PROJECT_ID : $_GET['pid'] ), 'array',
+		                                         false, $fieldName )[ $fieldName ]['field_type'];
+
 		// Get the value for the (event and) field.
 		$data = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
 		                                                    ? PROJECT_ID : $_GET['pid'] ),
@@ -783,7 +788,25 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 		}
 
+		// If the field is a file or signature field, get the file data.
+		if ( $fieldType == 'file' )
+		{
+			if ( $data == '' )
+			{
+				return '';
+			}
+			if ( $funcName == 'mime' )
+			{
+				return \REDCap::getFile( $data )[0];
+			}
+			$data = \REDCap::getFile( $data )[2];
+		}
+
 		// If applicable, apply a function to the value.
+		if ( $funcName == 'mime' )
+		{
+			return '';
+		}
 		if ( $funcName == 'date' && $data != '' )
 		{
 			// Convert a date from YYYY-MM-DD to the specified format.
