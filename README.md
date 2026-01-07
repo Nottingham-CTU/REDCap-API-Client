@@ -96,9 +96,19 @@ These fields only apply to HTTP/REST connections.
 * **HTTP Method** &ndash; The HTTP method to use. The documentation for the API you are connecting
   to should tell you the appropriate HTTP method.
 * **Request Headers** &ndash; Any HTTP headers that the API server expects in the request.
+  * To simulate a HTML form submission, use `Content-Type: application/x-www-form-urlencoded`
+    (this is automatically added when selecting *form field mode*) or
+    `Content-Type: multipart/form-data`, as appropriate for the request body format.
 * **Request Body** (POST and PUT requests only) &ndash; The data to submit in the request. This
   module will submit data exactly as provided (subject to placeholder replacement), you need to
   check that the data is in the format that the API server is expecting.
+  * For POST requests, you can enable *form field mode*, which will instead treat the request body
+    as a list of fields and values, with the field name and value separated by an equals sign (`=`).
+    * If this mode is used then raw data values can be entered directly, the request body will be
+      automatically converted to a URL-encoded string suitable for a form submission.
+    * Placeholder replacement takes place on each field name and value separately.
+    * If more than one `=` is entered on a line, the first `=` is treated as the separator and any
+      subsequent `=` characters are treated as literal `=` characters in the value.
 
 ### Placeholders
 
@@ -121,10 +131,19 @@ You can create as many placeholders as required.
   * You can also specify how the field is to be interpreted, see the *Field Interpretation* section
   of this document.
 * **Placeholder Format** &ndash; Specify how the value is to be encoded in the HTTP request.
+  The documentation for the API you are connecting to should tell you if a particular encoding is
+  expected.
   * *Raw value* will insert the data into the request as is. This could cause problems if the data
-    contains special characters, so you may need to consider an encoded format.
-  * *Base 64* and *URL encode* will apply that form of encoding. The documentation for the API you
-    are connecting to should tell you if a particular encoding is expected.
+    contains special characters, so you may need to consider an encoded format (unless *form field
+    mode* is used).
+  * *Base 64* converts the data into base 64 format, so e.g. `Base 64 string` becomes
+    `QmFzZSA2NCBzdHJpbmc=`.
+  * *JSON string* will encode the data into a string formatted for use in JSON data, so e.g.
+    `JSON éncoded "string"` becomes `"JSON \u00e9ncoded \"string\""`.
+  * *URL encode* will encode the data in a format suitable for use in URLs, so e.g.
+    `URL éncoded/string` becomes `URL%20%C3%A9ncoded%2Fstring`.
+  * *XML encode* will encode the data in a format suitable for use in XML, so e.g.
+    `XML 'éncoded" <string>` becomes `XML &apos;&#233;ncoded&quot; &lt;string&gt;`.
 
 ### SOAP (WSDL) Endpoint
 
@@ -274,6 +293,8 @@ follows the field interpretation selection.
   can be used to count from the end, use -1 for the last line, -2 for the penultimate line etc.
 * **Concatenate lines** &ndash; For multi-line (notes) fields, convert into a single line using the
   value of the transformation parameters as the separator.
+* **File MIME type** &ndash; For file upload fields, returns the MIME type of the file instead of
+  the file data.
 
 
 ## API Connection Debugger
