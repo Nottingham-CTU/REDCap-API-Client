@@ -119,6 +119,73 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 
+	// Format the module settings for the REDCap UI Tweaker simplified view.
+	function redcap_every_page_before_render( $project_id = null )
+	{
+		if ( $this->isModuleEnabled('redcap_ui_tweaker') )
+		{
+			$UITweaker = \ExternalModules\ExternalModules::getModuleInstance('redcap_ui_tweaker');
+			if ( $UITweaker->areExtModFuncExpected() )
+			{
+				$UITweaker->addExtModFunc( 'api_client',
+						function ( $data )
+						{
+							static $listSettings = [];
+							if ( $data['setting'] == 'conn-list' ||
+							     substr( $data['setting'], 0, 13 ) == 'conn-lastrun-' )
+							{
+								return false;
+							}
+							elseif ( substr( $data['setting'], 0, 12 ) == 'conn-config-' ||
+							         substr( $data['setting'], 0, 10 ) == 'conn-data-' )
+							{
+								$settingID = substr( $data['setting'],
+								                     substr( $data['setting'], 5, 1 ) == 'c'
+								                     ? 12 : 10 );
+								$setID = isset( $listSettings[ $settingID ] );
+								$listSettings[ $settingID ][ substr( $data['setting'], 5, 1 ) == 'c'
+								                             ? 'config' : 'data' ] = $data['value'];
+								if ( ! $setID )
+								{
+									return false;
+								}
+								$c = json_decode( $listSettings[ $settingID ]['config'], true );
+								$d = json_decode( $listSettings[ $settingID ]['data'], true );
+								if ( $c['type'] == 'http' )
+								{
+									unset( $d['auth_ph_value'] );
+								}
+								elseif ( $c['type'] == 'wsdl' )
+								{
+									for ( $i = 0; $i < count( $d['param_type'] ); $i++ )
+									{
+										if ( $d['param_type'][ $i ] == 'A' &&
+										     isset( $d['param_val'][ $i ] ) )
+										{
+											$d['param_val'][ $i ] = '';
+										}
+									}
+								}
+								$data['setting'] = $c['label'];
+								unset( $c['label'] );
+								$data['value'] = ( $c['active'] === false ? '**INACTIVE** ' : '' );
+								unset( $c['active'] );
+								$data['value'] .= '[' . strtoupper( $c['type'] ) . '] ';
+								unset( $c['type'] );
+								$data['value'] .= $d['url'] . "\n";
+								unset( $d['url'] );
+								$data['value'] .= json_encode( $c ) . "\n" . json_encode( $d );
+								return $data;
+							}
+							return true;
+						}
+						);
+			}
+		}
+	}
+
+
+
 	// Apply any relevant connections when a record is saved.
 	function redcap_save_record( $project_id, $record, $instrument, $event_id, $group_id = null,
 	                             $survey_hash = null, $response_id = null, $repeat_instance = 1 )
@@ -143,7 +210,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		foreach ( $listConnections as $connID => $connConfig )
 		{
 			// Check that the connection is active and triggered on record save.
-			if ( ! $connConfig['active'] || $connConfig['trigger'] != 'R' )
+			if ( ! $this->isActive( $connConfig['active'] ) || $connConfig['trigger'] != 'R' )
 			{
 				continue;
 			}
@@ -195,53 +262,93 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	{
 		$oldContext = $_GET['pid'];
 		$execTime = time();
+		$execMinute = date( 'i', $execTime );
+		$execHour = date( 'G', $execTime );
 		$execDay = date( 'j', $execTime );
 		$execMonth = date( 'n', $execTime );
 		$execYear = date( 'Y', $execTime );
+		$earliestTime = $execTime - ( 86400 * 14 );
 		$listCrons = $this->getSystemSetting( 'cronlist' );
 		if ( $listCrons === null )
 		{
 			return;
 		}
+		// For each cron...
 		$listCrons = json_decode( $listCrons, true );
 		foreach ( $listCrons as $prConnID => $cronDetails )
 		{
 			// Get the project and connection ID for the cron, and set the project context.
 			list( $projectID, $connID ) = explode( '.', $prConnID, 2 );
 			$_GET['pid'] = $projectID;
-			// Get the cron configuration, and test recent days for a match.
-			$testDay = $execDay + 1;
-			$testMonth = $execMonth;
-			$testYear = $execYear;
-			$isMatch = false;
-			do
+			$connConfig = $this->getConnectionConfig( $connID );
+			// Check the connection is active.
+			if ( ! $this->isActive( $connConfig['active'] ) )
 			{
-				$testDay--;
-				$testTime = mktime( $cronDetails['hr'], $cronDetails['min'], 0,
-				                    $testMonth, $testDay, $testYear );
-				$testDay = date( 'j', $testTime );
-				$testMonth = date( 'n', $testTime );
-				$testYear = date( 'Y', $testTime );
-				$testDoW = date( 'w', $testTime );
-				if ( $testTime <= $execTime &&
-				     ( $cronDetails['day'] == '*' || $cronDetails['day'] == $testDay ) &&
-				     ( $cronDetails['mon'] == '*' || $cronDetails['mon'] == $testMonth ) &&
-				     ( $cronDetails['dow'] == '*' || $cronDetails['dow'] == $testDoW ) )
+				continue;
+			}
+			$isMatch = null;
+			$lastRunTime = $this->getSystemSetting( "p$projectID-conn-lastrun-$connID" );
+			// Test the current and previous month, stop if neither match.
+			if ( ! $this->matchCronPart( $cronDetails['mon'], $execMonth ) )
+			{
+				$testMonth = date( 'n', mktime( 0, 0, 0, $execMonth, 0, $execYear ) );
+				if ( ! $this->matchCronPart( $cronDetails['mon'], $testMonth ) )
 				{
-					$isMatch = true;
+					$isMatch = false;
 				}
 			}
-			while ( ! $isMatch && $testTime > $execTime - ( 86400 * 7 ) );
+			// If at least one of the months match, proceed to test days.
+			// For a day to match, its day (of month), month and day of week must match.
+			if ( $isMatch !== false )
+			{
+				$isMatch = false;
+				$testDay = $execDay + 1;
+				$testMonth = $execMonth;
+				$testYear = $execYear;
+				do
+				{
+					$testDay--;
+					$testTime = mktime( 23, 59, 0, $testMonth, $testDay, $testYear );
+					if ( $testTime > $execTime )
+					{
+						$testTime = mktime( $execHour, $execMinute, 0,
+						                    $testMonth, $testDay, $testYear );
+					}
+					$testDay = date( 'j', $testTime );
+					$testMonth = date( 'n', $testTime );
+					$testYear = date( 'Y', $testTime );
+					$testDoW = date( 'w', $testTime );
+					if ( $this->matchCronPart( $cronDetails['day'], $testDay ) &&
+					     $this->matchCronPart( $cronDetails['mon'], $testMonth ) &&
+					     $this->matchCronPart( $cronDetails['dow'], $testDoW ) )
+					{
+						// The day matches, now attempt to match the hour and minute.
+						$testTime += 60;
+						do
+						{
+							$testTime -= 60;
+							$testHour = date( 'G', $testTime );
+							$testMinute = date( 'i', $testTime );
+							if ( $this->matchCronPart( $cronDetails['hr'], $testHour ) &&
+							     $this->matchCronPart( $cronDetails['min'], $testMinute ) )
+							{
+								$isMatch = true;
+							}
+						}
+						while ( ! $isMatch && $testTime > $lastRunTime &&
+						        ( $testHour > 0 || $testMinute > 0 ) );
+					}
+				}
+				while ( ! $isMatch && $testTime > $earliestTime && $testTime > $lastRunTime );
+			}
 			// If there is not a match, or if the most recent matching run time is equal or
 			// prior to the last run time, proceed to the next cron item.
-			if ( ! $isMatch ||
-			     $testTime <= $this->getSystemSetting( "p$projectID-conn-lastrun-$connID" ) )
+			if ( ! $isMatch || $testTime <= $lastRunTime )
 			{
 				continue;
 			}
 			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", $execTime );
 			// For each record (& each event if applicable)...
-			$connConfig = $this->getConnectionConfig( $connID );
 			$connData = $this->getConnectionData( $connID );
 			$listEvents = [ null ];
 			if ( isset( $connConfig['all_events'] ) )
@@ -342,11 +449,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Add a new connection, with the specified configuration and data.
-	function addConnection( $connConfig, $connData )
+	function addConnection( $connConfig, $connData, $connID = '' )
 	{
 		$projectID = $this->getProjectID();
-		// Generate a new connection ID.
-		$connID = '';
+		// Generate a new connection ID if required.
 		$listIDs = $this->getSystemSetting( "p$projectID-conn-list" );
 		if ( $listIDs === null )
 		{
@@ -371,7 +477,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Set the connection configuration and data.
 		$this->setSystemSetting( "p$projectID-conn-config-$connID", json_encode( $connConfig ) );
 		$this->setSystemSetting( "p$projectID-conn-data-$connID", json_encode( $connData ) );
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", time() );
 		}
@@ -425,6 +531,64 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function escapeHTML( $text )
 	{
 		return htmlspecialchars( $text, ENT_QUOTES );
+	}
+
+
+
+	// Export project settings (e.g. for Project Deployment module).
+	public function exportProjectSettings( $projectID )
+	{
+		// Get the pack categories.
+		$querySetting = $this->query( 'WITH apic AS ( SELECT REGEXP_REPLACE(ems.`key`,' .
+		                              '\'^p[0-9]+-\',\'\') AS `key1`, `type`, ems.`value` ' .
+		                              'FROM redcap_external_module_settings ems ' .
+		                              'JOIN redcap_external_modules em ' .
+		                              'ON ems.external_module_id = em.external_module_id ' .
+		                              'WHERE em.directory_prefix = ? ' .
+		                              'AND (ems.`key` LIKE ? OR project_id = ?) ' .
+		                              'HAVING `key1` NOT IN( \'enabled\', \'conn-list\' ) ' .
+		                              'AND `key1` NOT LIKE \'conn-lastrun-%\' ), ' .
+		                              'keylbl AS ( SELECT SUBSTRING(apic.key1,13) AS keypart, ' .
+		                              'REGEXP_REPLACE( REPLACE( JSON_UNQUOTE( JSON_EXTRACT(' .
+		                              'apic.value,\'$.label\') ), \' \', \'-\' ), ' .
+		                              '\'[^A-Za-z0-9_-]\', \'\' ) AS labelkey '.
+		                              'FROM apic WHERE LEFT(apic.key1,12) = \'conn-config-\' ), ' .
+		                              'keylbl2 AS ( SELECT CONCAT(\'conn-config-\',keypart) ' .
+		                              'AS keypart, CONCAT(\'conn-config-\',labelkey) ' .
+		                              'AS labelkey FROM keylbl ' .
+		                              'UNION SELECT CONCAT(\'conn-data-\',keypart), ' .
+		                              'CONCAT(\'conn-data-\',labelkey) FROM keylbl ) ' .
+		                              'SELECT IFNULL((SELECT labelkey FROM keylbl2 ' .
+		                              'WHERE keypart = apic.key1 LIMIT 1), key1) AS `key`, ' .
+		                              'IF(key1 LIKE \'conn-%\', \'json\', `type`) AS `type`, ' .
+		                              'IF(key1 LIKE \'conn-data-%\', ' .
+		                              'JSON_REMOVE(`value`,\'$.auth_ph_value\'), `value`) ' .
+		                              'AS `value`, IF(JSON_SEARCH(`value`,\'one\',\'A\',NULL,' .
+		                              '\'$.param_type[*]\') IS NULL, 0, 1) AS `has_authparam` ' .
+		                              'FROM apic ORDER BY if(`key` LIKE \'conn-%\', 1, 0 ), ' .
+		                              'REGEXP_REPLACE(`key`, \'^conn-(config|data)-\',\'\'), `key`',
+		                              [ preg_replace( '/_v[0-9.]+$/', '',
+		                                              $this->getModuleDirectoryName() ),
+		                                'p' . $projectID . '-%', $projectID ] );
+		$listSetting = [];
+		while ( $infoSetting = $querySetting->fetch_assoc() )
+		{
+			if ( $infoSetting['has_authparam'] == 1 )
+			{
+				$infoSetting['value'] = json_decode( $infoSetting['value'], true );
+				foreach ( $infoSetting['value']['param_type'] as $i => $t )
+				{
+					if ( $t == 'A' )
+					{
+						$infoSetting['value']['param_val'][ $i ] = '';
+					}
+				}
+				$infoSetting['value'] = json_encode( $infoSetting['value'] );
+			}
+			unset( $infoSetting['has_authparam'] );
+			$listSetting[] = $infoSetting;
+		}
+		return $listSetting;
 	}
 
 
@@ -540,6 +704,11 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 		}
 
+		// Get the field type.
+		$fieldType = \REDCap::getDataDictionary( ( defined('PROJECT_ID')
+		                                           ? PROJECT_ID : $_GET['pid'] ), 'array',
+		                                         false, $fieldName )[ $fieldName ]['field_type'];
+
 		// Get the value for the (event and) field.
 		$data = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
 		                                                    ? PROJECT_ID : $_GET['pid'] ),
@@ -620,7 +789,25 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 		}
 
+		// If the field is a file or signature field, get the file data.
+		if ( $fieldType == 'file' )
+		{
+			if ( $data == '' )
+			{
+				return '';
+			}
+			if ( $funcName == 'mime' )
+			{
+				return \REDCap::getFile( $data )[0];
+			}
+			$data = \REDCap::getFile( $data )[2];
+		}
+
 		// If applicable, apply a function to the value.
+		if ( $funcName == 'mime' )
+		{
+			return '';
+		}
 		if ( $funcName == 'date' && $data != '' )
 		{
 			// Convert a date from YYYY-MM-DD to the specified format.
@@ -674,6 +861,31 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 
+	// Check if a connection should be active given it's active setting.
+	// If true/false, returns that value. If null, returns true if production, false otherwise.
+	function isActive( $active = null )
+	{
+		static $serverProduction = null;
+		if ( $active === true || $active === false )
+		{
+			return $active;
+		}
+		if ( $serverProduction === null )
+		{
+			$querySrvProd = $this->query( 'SELECT 1 FROM redcap_config ' .
+			                              'WHERE field_name = \'is_development_server\' ' .
+			                              'AND `value` = \'0\'', [] );
+			$serverProduction = is_array( $querySrvProd->fetch_assoc() );
+		}
+		if ( $serverProduction === false || $this->getProjectId() === null )
+		{
+			return false;
+		}
+		return $this->getProjectStatus() == 'PROD';
+	}
+
+
+
 	// Create a link for the current page with a modified query string variable.
 	function makeQueryLink( $label, $variable, $value = '' )
 	{
@@ -719,6 +931,33 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$url .= $urlVariable . '=' . rawurlencode( $value );
 		}
 		return $url;
+	}
+
+
+
+	// Test a crontab part against a value for a match.
+	function matchCronPart( $cronPart, $value )
+	{
+		if ( $cronPart == '*' )
+		{
+			return true;
+		}
+		foreach ( explode( ',', $cronPart ) as $subPart )
+		{
+			list( $range, $step ) = ( strpos( $subPart, '/' ) !== false )
+			                        ? explode( '/', $subPart ) : [ $subPart, 1 ];
+			if ( $range == '*' )
+			{
+				$range = '0-59';
+			}
+			list( $start, $end ) = ( strpos( $range, '-' ) !== false )
+			                       ? explode( '-', $range ) : [ $range, $range ];
+			if ( $value >= $start && $value <= $end && ( $value - $start ) % $step == 0 )
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 
@@ -802,17 +1041,39 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function performHTTP( $connData, $recordID, $defaultInstance, $defaultEvent )
 	{
 		// Get the URL, request method, headers and body.
-		$url = $connData['url'];
+		// Any carriage return (\r) characters in the URL, headers and body are stripped out.
+		// As the carriage returns are removed, we can safely insert some later to markup the
+		// placeholder strings so these are not inadventantly replaced in already substituted data.
+		$url = str_replace( [ "\r", "\n" ], '', $connData['url'] );
 		$method = $connData['method'];
-		$headers = $connData['headers'];
-		$body = $connData['body'];
-		$this->apiDebug( 'HTTP Request (method: ' . strtoupper( $method ) . ')' );
+		$headers = trim( str_replace( "\r", '', $connData['headers'] ) );
+		$body = trim( str_replace( "\r", '', $connData['body'] ) );
+		$this->apiDebug( 'HTTP Request (method: ' . strtoupper( $method ) .
+		                 ( isset( $connData['post_as_form'] ) ? ', form field mode' : '' ) . ')' );
 		$this->apiDebug( 'Parameters (pre-placeholder replacement):' );
 		$this->apiDebug( '  HTTP URL: ' . $url );
 		$this->apiDebug( '  Headers: ' . str_replace( "\n", "\n           ", $headers ) );
 		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $body ) );
 		// Get the placeholder name/value pairs.
 		$listPlaceholders = [];
+		if ( isset( $connData['auth_ph_name'] ) && $connData['auth_ph_name'] != '' )
+		{
+			$listPlaceholders[ $connData['auth_ph_name'] ] = $connData['auth_ph_value'];
+			$url = str_replace( $connData['auth_ph_name'], "\r" . $connData['auth_ph_name'], $url );
+			$headers = str_replace( $connData['auth_ph_name'],
+			                        "\r" . $connData['auth_ph_name'], $headers );
+			$body = str_replace( $connData['auth_ph_name'],
+			                     "\r" . $connData['auth_ph_name'], $body );
+		}
+		foreach ( [ 'REDCAP_APP_PATH_WEBROOT_FULL' => APP_PATH_WEBROOT_FULL,
+		            'REDCAP_APP_PATH_API_FULL' => APP_PATH_WEBROOT_FULL . 'api/' ]
+		          as $placeholderName => $placeholderValue )
+		{
+			$listPlaceholders[ $placeholderName ] = $placeholderValue;
+			$url = str_replace( $placeholderName, "\r" . $placeholderName, $url );
+			$headers = str_replace( $placeholderName, "\r" . $placeholderName, $headers );
+			$body = str_replace( $placeholderName, "\r" . $placeholderName, $body );
+		}
 		if ( ! isset( $connData['ph_name'] ) || ! is_array( $connData['ph_name'] ) )
 		{
 			$connData['ph_name'] = [];
@@ -837,83 +1098,176 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				$placeholderValue = base64_encode( $placeholderValue );
 			}
+			elseif ( $connData['ph_format'][$i] == 'json' )
+			{
+				$placeholderValue = json_encode( strval( $placeholderValue ),
+				                                 JSON_UNESCAPED_SLASHES );
+			}
 			elseif ( $connData['ph_format'][$i] == 'url' )
 			{
 				$placeholderValue = rawurlencode( $placeholderValue );
 			}
+			elseif ( $connData['ph_format'][$i] == 'xml' )
+			{
+				$placeholderValue = htmlspecialchars( $placeholderValue,
+				                                      ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1,
+				                                      'UTF-8' );
+				$placeholderValue = mb_encode_numericentity( $placeholderValue,
+				                                             [ 0x80, 0x1FFFFF, 0, 0x1FFFFF ],
+				                                             'UTF-8' );
+			}
 			// Add the placeholder name and formatted value to the list.
+			// Remove any carriage returns (\r) from the value, and markup the placeholder name in
+			// the URL, headers and body with carriage returns, so we will know later that these are
+			// actual placeholders and not previously substituted data.
+			$placeholderValue = str_replace( "\r", '', $placeholderValue );
+			$url = str_replace( $connData['ph_name'][$i], "\r" . $connData['ph_name'][$i], $url );
+			$headers = str_replace( $connData['ph_name'][$i],
+			                        "\r" . $connData['ph_name'][$i], $headers );
+			$body = str_replace( $connData['ph_name'][$i], "\r" . $connData['ph_name'][$i], $body );
 			$listPlaceholders[ $connData['ph_name'][$i] ] = $placeholderValue;
 		}
 		// Search/replace the placeholder names with the values.
+		// As this makes several passes (once for each placeholder), the placeholder string is only
+		// replaced where it has been marked up with a carriage return (\r) character, so a
+		// replacement is not performed on substituted data from previous passes.
+		if ( isset( $connData['post_as_form'] ) )
+		{
+			// For form field mode, split the body into field names and values.
+			$body = explode( "\n", $body );
+			foreach ( $body as $i => $bodyItem )
+			{
+				if ( strpos( $bodyItem, '=' ) === false )
+				{
+					unset( $body[$i] );
+					continue;
+				}
+				$body[$i] = explode( '=', $bodyItem, 2 );
+			}
+			$body = array_values( $body );
+		}
 		$this->apiDebug( 'Placeholders:' );
 		foreach ( $listPlaceholders as $placeholderName => $placeholderValue )
 		{
 			$placeholderValue = array_reduce( [ $placeholderValue ],
 			                                  function( $c, $i ) { return $c . $i; }, '' );
-			$this->apiDebug( '  ' . $placeholderName . ' => ' . $placeholderValue );
-			$url = str_replace( $placeholderName, $placeholderValue, $url );
-			$headers = str_replace( $placeholderName, $placeholderValue, $headers );
-			$body = str_replace( $placeholderName, $placeholderValue, $body );
+			$this->apiDebug( '  ' . $placeholderName . ' => ' .
+			                 str_replace( "\n",
+			                              "\n" . str_repeat( ' ', strlen( $placeholderName ) + 6 ),
+			                              $placeholderValue ) );
+			$url = str_replace( "\r" . $placeholderName, $placeholderValue, $url );
+			$headers = str_replace( "\r" . $placeholderName, $placeholderValue, $headers );
+			if ( isset( $connData['post_as_form'] ) )
+			{
+				// For form field mode, perform the replacement on each field name/value separately.
+				foreach ( $body as $i => $bodyItem )
+				{
+					$body[$i][0] = str_replace( "\r" . $placeholderName,
+					                            $placeholderValue, $body[$i][0] );
+					$body[$i][1] = str_replace( "\r" . $placeholderName,
+					                            $placeholderValue, $body[$i][1] );
+				}
+			}
+			else
+			{
+				$body = str_replace( "\r" . $placeholderName, $placeholderValue, $body );
+			}
 		}
+		if ( isset( $connData['post_as_form'] ) )
+		{
+			// For form field mode, URL-encode the field names/values and join together.
+			foreach ( $body as $i => $bodyItem )
+			{
+				$bodyItem[0] = rawurlencode( $bodyItem[0] );
+				$bodyItem[1] = rawurlencode( $bodyItem[1] );
+				$body[$i] = implode( '=', $bodyItem );
+			}
+			$body = implode( '&', $body );
+		}
+		$url = str_replace( "\r", '', $url );
+		$headers = str_replace( "\r", '', $headers );
+		$body = str_replace( "\r", '', $body );
 		$this->apiDebug( 'Parameters (post-placeholder replacement):' );
 		$this->apiDebug( '  HTTP URL: ' . $url );
 		$this->apiDebug( '  Headers: ' . str_replace( "\n", "\n           ", $headers ) );
 		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $body ) );
 		// Check that the URL is valid.
-		if ( ! $this->validateURL( $url ) )
+		if ( $url != 'null:' && ! $this->validateURL( $url ) )
 		{
 			$this->apiDebug( 'Invalid or disallowed URL.' );
 			return;
 		}
 		// Use cURL to perform the HTTP request.
-		$curlCertBundle = $this->getSystemSetting('curl-ca-bundle');
-		$curl = curl_init( $url );
-		if ( $curlCertBundle != '' )
+		if ( $url == 'null:' )
 		{
-			curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
+			// If the URL is 'null:', do not perform an actual HTTP request, just provide a
+			// successful empty result.
+			$httpResult = '';
+			$responseCode = 200;
 		}
-		elseif ( ini_get( 'curl.cainfo' ) == '' )
+		else
 		{
-			curl_setopt( $curl, CURLOPT_CAINFO, self::REDCAP_CAINFO );
+			// Get the CA bundle and configure TLS and proxy.
+			$curlCertBundle = $this->getSystemSetting('curl-ca-bundle');
+			$curl = curl_init( $url );
+			if ( $curlCertBundle != '' )
+			{
+				curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
+			}
+			elseif ( ini_get( 'curl.cainfo' ) == '' )
+			{
+				curl_setopt( $curl, CURLOPT_CAINFO, self::REDCAP_CAINFO );
+			}
+			curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
+			$proxyHost = $this->getSystemSetting( 'http-proxy-host' );
+			$proxyPort = $this->getSystemSetting( 'http-proxy-port' );
+			if ( $proxyHost != '' && $proxyPort != '' )
+			{
+				curl_setopt( $curl, CURLOPT_PROXY, $proxyHost . ':' . $proxyPort );
+			}
+			// Request cURL return the response.
+			curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
+			// Specify the HTTP method (for POST/PUT, set the request body).
+			switch ( $method )
+			{
+				case 'get':
+					curl_setopt( $curl, CURLOPT_HTTPGET, true );
+					break;
+				case 'post':
+					curl_setopt( $curl, CURLOPT_POST, true );
+					curl_setopt( $curl, CURLOPT_POSTFIELDS, str_replace( "\n", "\r\n", $body ) );
+					break;
+				case 'put':
+					curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'PUT');
+					curl_setopt( $curl, CURLOPT_POSTFIELDS, str_replace( "\n", "\r\n", $body ) );
+					break;
+				case 'delete':
+					curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'DELETE');
+					break;
+			}
+			// Set the request headers, perform the request, and get the response and status code.
+			curl_setopt( $curl, CURLOPT_HTTPHEADER, explode( "\n", $headers ) );
+			$httpResult = curl_exec( $curl );
+			$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		}
-		curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
-		$proxyHost = $this->getSystemSetting( 'http-proxy-host' );
-		$proxyPort = $this->getSystemSetting( 'http-proxy-port' );
-		if ( $proxyHost != '' && $proxyPort != '' )
-		{
-			curl_setopt( $curl, CURLOPT_PROXY, $proxyHost . ':' . $proxyPort );
-		}
-		curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
-		switch ( $method )
-		{
-			case 'get':
-				curl_setopt( $curl, CURLOPT_HTTPGET, true );
-				break;
-			case 'post':
-				curl_setopt( $curl, CURLOPT_POST, true );
-				curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
-				break;
-			case 'put':
-				curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'PUT');
-				curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
-				break;
-			case 'delete':
-				curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'DELETE');
-				break;
-		}
-		curl_setopt( $curl, CURLOPT_HTTPHEADER,
-		             explode( "\n", str_replace( "\r\n", "\n", $headers ) ) );
-		$httpResult = curl_exec( $curl );
-		$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
-		// Stop here if the response format is 'none', or if the HTTP response status is not 200.
+		// Stop here if the HTTP response status is not an accepted status code.
+		$listAcceptedCodes = isset( $connData['response_status_codes'] )
+		                     ? explode( ',', $connData['response_status_codes'] ) : ['200'];
 		$this->apiDebug( 'Response:' );
 		$this->apiDebug( '  Status: ' . $responseCode );
-		if ( ( $connData['response_format'] ?? '' ) == '' || $responseCode != 200 )
+		if ( ! in_array( $responseCode, $listAcceptedCodes ) )
 		{
-			$this->apiDebug( $responseCode == 200 ? 'Response not needed.' : 'Bad response code.' );
+			$this->apiDebug( 'Bad response code.' );
 			return;
 		}
-		$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $httpResult ) );
+		if ( ( $connData['response_format'] ?? '' ) == '' )
+		{
+			$this->apiDebug( '  Response not needed.' );
+		}
+		else
+		{
+			$this->apiDebug( '  Body: ' . str_replace( "\n", "\n        ", $httpResult ) );
+		}
 		// Prepare the return values (if any).
 		$httpReturn = [];
 		$this->apiDebug( 'New data:' );
@@ -921,9 +1275,100 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			$connData['response_field'] = [];
 		}
+		// For CSV response format, convert to XML so XPath can be used.
+		// The data will be split into lines and fields.
+		if ( $connData['response_format'] == 'C' ) // CSV
+		{
+			$httpResultFP = fopen( 'php://memory', 'r+' );
+			fwrite( $httpResultFP, $httpResult );
+			rewind( $httpResultFP );
+			$httpResult = '<root>';
+			$httpResultHeaders = [];
+			while ( ( $httpResultLine = fgetcsv( $httpResultFP, null, ',', '"', '' ) ) !== false )
+			{
+				$httpResult .= '<line>';
+				foreach ( $httpResultLine as $i => $value )
+				{
+					$httpResult .= '<item';
+					if ( isset( $httpResultHeaders[$i] ) )
+					{
+						$httpResult .= ' header="';
+						$httpResult .= htmlspecialchars( $httpResultHeaders[$i],
+						                                 ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+						$httpResult .= '"';
+					}
+					$httpResult .= '>';
+					$httpResult .= htmlspecialchars( $value,
+					                                 ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+					$httpResult .= '</item>';
+				}
+				$httpResult .= '</line>';
+				if ( empty( $httpResultHeaders ) )
+				{
+					$httpResultHeaders = $httpResultLine;
+				}
+			}
+			$httpResult .= '</root>';
+		}
+		// For JSON response format, convert to XML so XPath can be used, but also retain the JSON
+		// so it can be searched by JSON path.
+		elseif ( $connData['response_format'] == 'J' ) // JSON
+		{
+			$httpResultJSON = $httpResult;
+			$fnConvJSON = function( $item ) use ( &$fnConvJSON )
+			{
+				if ( $item === null )
+				{
+					return '';
+				}
+				if ( is_array( $item ) )
+				{
+					$output = '';
+					foreach ( $item as $i => $value )
+					{
+						$output .= '<item index="' . intval( $i ) . '">';
+						$output .= $fnConvJSON( $value );
+						$output .= '</item>';
+					}
+					return $output;
+				}
+				if( is_object( $item ) )
+				{
+					$output = '';
+					foreach ( $item as $key => $value )
+					{
+						$key = preg_replace( '/^[0-9]+/', '', $key );
+						$key = preg_replace( '/[^A-Za-z0-9_-]+/', '_', $key );
+						$output .= '<' . $key . '>';
+						$output .= $fnConvJSON( $value );
+						$output .= '</' . $key . '>';
+					}
+					return $output;
+				}
+				if ( is_bool( $item ) )
+				{
+					return $item ? '1' : '0';
+				}
+				return htmlspecialchars( $item, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+			};
+			$httpResult = $fnConvJSON( json_decode( '{"root":' . $httpResult . '}' ) );
+		}
+		// For plain text response format, convert to XML so XPath can be used.
+		// The data will be split into lines.
+		elseif ( $connData['response_format'] == 'P' ) // Plain text
+		{
+			$httpResult = htmlspecialchars( $httpResult, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1 );
+			$httpResult = str_replace( "\r\n", "\n", $httpResult );
+			$httpResult = explode( "\n", $httpResult );
+			$httpResult = implode( '</line><line>', $httpResult );
+			$httpResult = '<root><line>' . $httpResult . '</line></root>';
+		}
+		// For each response field...
 		for ( $i = 0; $i < count( $connData['response_field'] ); $i++ )
 		{
-			if ( $connData['response_field'][$i] == '' )
+			if ( $connData['response_field'][$i] == '' ||
+			     ( ( $connData['response_format'] ?? '' ) == '' &&
+			       $connData['response_type'][$i] == 'R' ) )
 			{
 				continue;
 			}
@@ -943,12 +1388,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								str_replace( $placeholderName, $placeholderValue, $responsePath );
 						}
 					}
-					if ( $connData['response_format'] == 'J' ) // JSON
+					// Search a JSON response with JSON path.
+					if ( $connData['response_format'] == 'J' &&
+					     substr( $responsePath, 0, 1 ) == '$' )
 					{
 						$httpProcConn = $GLOBALS['conn'];
 						$httpProcQuery =
 							$httpProcConn->prepare( 'SELECT JSON_UNQUOTE(JSON_EXTRACT(?,?))' );
-						$httpProcQuery->bind_param( 'ss', $httpResult, $responsePath );
+						$httpProcQuery->bind_param( 'ss', $httpResultJSON, $responsePath );
 						$httpProcQuery->execute();
 						$httpProcResult = $httpProcQuery->get_result();
 						if ( $httpProcResult === false )
@@ -973,7 +1420,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 							}
 						}
 					}
-					elseif ( $connData['response_format'] == 'X' ) // XML
+					// Search a response with XPath.
+					elseif ( in_array( $connData['response_format'], [ 'C', 'J', 'P', 'X' ] ) )
 					{
 						try
 						{
@@ -1034,7 +1482,8 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Write the return values to the record.
 		if ( count( $httpReturn ) > 0 )
 		{
-			$this->setProjectFieldValues( $recordID, $httpReturn );
+			$this->setProjectFieldValues( $recordID, $httpReturn,
+			                              ( $connData['response_save_blanks'] ?? '' ) == '1' );
 		}
 	}
 
@@ -1064,16 +1513,24 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		}
 		for ( $i = 0; $i < count( $connData['param_name'] ); $i++ )
 		{
-			if ( $connData['param_name'][$i] == '' || $connData['param_field'][$i] == '' )
+			if ( $connData['param_name'][$i] == '' )
 			{
 				continue;
 			}
-			if ( $connData['param_type'][$i] == 'C' ) // constant value
+			if ( in_array( $connData['param_type'][$i], [ 'A', 'C' ] ) ) // constant value
 			{
+				if ( $connData['param_val'][$i] == '' )
+				{
+					continue;
+				}
 				$listParams[ $connData['param_name'][$i] ] = $connData['param_val'][$i];
 			}
 			elseif ( $connData['param_type'][$i] == 'F' ) // project field
 			{
+				if ( $connData['param_field'][$i] == '' )
+				{
+					continue;
+				}
 				$useInstance =
 					( $connData['param_inst'][$i] === '' ? $defaultInstance
 					                                     : $connData['param_inst'][$i] );
@@ -1155,16 +1612,17 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Write the return values to the record.
 		if ( count( $soapReturn ) > 0 )
 		{
-			$this->setProjectFieldValues( $recordID, $soapReturn );
+			$this->setProjectFieldValues( $recordID, $soapReturn,
+			                              ( $connData['response_save_blanks'] ?? '' ) == '1' );
 		}
 	}
 
 
 
-	// Get the value of a project field.
+	// Set the value of project fields.
 	// $inputData is a 2-level array, where the second level array keys are 'event', 'field',
 	// 'instance', and 'value', defining the fields and the data to insert.
-	function setProjectFieldValues( $recordID, $inputData )
+	function setProjectFieldValues( $recordID, $inputData, $saveBlanks )
 	{
 		// Prepare the dataset for insert.
 		$data = [ $recordID => [] ];
@@ -1221,13 +1679,30 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			else
 			{
 				// Multi-instance data.
+				$selectedInstance = $inputItem['instance'];
 				$totalInstances = \REDCap::getData( [ 'project_id' => ( defined('PROJECT_ID')
 				                                                      ? PROJECT_ID : $_GET['pid'] ),
 				                                      'return_format' => 'array',
 				                                      'records' => $recordID ] );
-				$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
-				                                                [ $eventID ][ $repeatInstrument ] );
-				$selectedInstance = $inputItem['instance'];
+				if ( isset( $totalInstances[ $recordID ][ 'repeat_instances' ]
+				                                               [ $eventID ][ $repeatInstrument ] ) )
+				{
+					$totalInstances = count( $totalInstances[ $recordID ][ 'repeat_instances' ]
+					                                            [ $eventID ][ $repeatInstrument ] );
+					if ( $selectedInstance == '+' )
+					{
+						$totalInstances++;
+						$selectedInstance = $totalInstances;
+					}
+				}
+				else
+				{
+					$totalInstances = 1;
+					if ( $selectedInstance == '+' )
+					{
+						$selectedInstance = 1;
+					}
+				}
 				if ( $selectedInstance < 1 )
 				{
 					$selectedInstance = $totalInstances + $selectedInstance;
@@ -1252,7 +1727,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Add the data to the record.
 		\REDCap::saveData( [ 'project_id' => ( defined('PROJECT_ID') ? PROJECT_ID : $_GET['pid'] ),
 		                     'dataFormat' => 'array', 'data' => $data, 'dateFormat' => 'YMD',
-		                     'overwriteBehavior' => 'normal' ] );
+		                     'overwriteBehavior' => ( $saveBlanks ? 'overwrite' : 'normal' ) ] );
 	}
 
 
@@ -1261,7 +1736,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function updateCronList( $projectID, $connID, $connConfig )
 	{
 		// Get the cron details, if applicable.
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			$cronDetails = [];
 			foreach ( [ 'min', 'hr', 'day', 'mon', 'dow' ] as $t )
@@ -1280,7 +1755,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		{
 			$listCrons = json_decode( $listCrons, true );
 		}
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			$listCrons["$projectID.$connID"] = $cronDetails;
 		}
@@ -1331,8 +1806,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			$listConnections = $this->getConnectionList();
 			foreach ( $listConnections as $connID => $connConfig )
 			{
-				if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+				if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 				{
+					$cronDetails = [];
+					foreach ( [ 'min', 'hr', 'day', 'mon', 'dow' ] as $t )
+					{
+						$cronDetails[$t] = $connConfig["cron_$t"];
+					}
 					$listCrons["$projectID.$connID"] = $cronDetails;
 				}
 			}
@@ -1350,7 +1830,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$projectID = $this->getProjectID();
 		$this->setSystemSetting( "p$projectID-conn-config-$connID", json_encode( $connConfig ) );
 		$this->setSystemSetting( "p$projectID-conn-data-$connID", json_encode( $connData ) );
-		if ( $connConfig['active'] && $connConfig['trigger'] == 'C' )
+		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
 			if ( $this->getSystemSetting( "p$projectIDconn-lastrun-$connID" ) == null )
 			{

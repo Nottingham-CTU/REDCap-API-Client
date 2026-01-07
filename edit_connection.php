@@ -30,14 +30,14 @@ $connData = $module->getConnectionData( $connID );
 if ( ! empty( $_POST ) )
 {
 	// If indicated, check conditional logic.
-	if ( isset( $_POST[ 'checklogic' ] ) )
+	if ( isset( $_POST['checklogic'] ) )
 	{
 		header( 'Content-Type: application/json' );
 		echo \LogicTester::isValid( $_POST['checklogic'] ) ? 'true' : 'false';
 		exit;
 	}
 	// If indicated, delete the connection.
-	if ( isset( $_POST[ 'conn_delete' ] ) )
+	if ( isset( $_POST['conn_delete'] ) )
 	{
 		$module->deleteConnection( $connID );
 		header( 'Location: ' . $module->getUrl( 'connections.php' ) );
@@ -53,7 +53,7 @@ if ( ! empty( $_POST ) )
 		{
 			if ( $submitVar == 'conn_active' )
 			{
-				$submitConfig[ 'active' ] = ( $submitVal == 'Y' );
+				$submitConfig['active'] = ( $submitVal == 'P' ? null : ( $submitVal == 'Y' ) );
 			}
 			else
 			{
@@ -62,6 +62,10 @@ if ( ! empty( $_POST ) )
 		}
 		elseif ( substr( $submitVar, 0, strlen( $submitTypePrefix ) ) == $submitTypePrefix )
 		{
+			if ( $submitVar == 'http_post_as_form' && $_POST['http_method'] != 'post' )
+			{
+				continue;
+			}
 			$submitData[ substr( $submitVar, strlen( $submitTypePrefix ) ) ] = $submitVal;
 		}
 	}
@@ -92,7 +96,7 @@ function fieldSelector( $name, $incFunc = true )
 	$module->outputFieldDropdown( $name . '_field[]', '' );
 	echo addslashes( ob_get_clean() );
 	echo ' <input type="text" name="', $module->escapeHTML( $name ), '_inst[]"',
-		 ' pattern="^(0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
+		 ' pattern="^(\+|0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
 	if ( $incFunc )
 	{
 		echo ' <select name="', $name, '_func[]" style="margin-left:20px">',
@@ -100,6 +104,7 @@ function fieldSelector( $name, $incFunc = true )
 		     '<option value="date">Format date</option>',
 		     '<option value="getline">Get line</option>',
 		     '<option value="concatlines">Concatenate lines</option>',
+		     '<option value="mime">File MIME type</option>',
 		     '</select> <input type="text" style="width:90px" name="', $name, '_func_args[]"',
 		     ' title="Enter function parameters">';
 	}
@@ -185,12 +190,17 @@ foreach ( $module->getConnectionTypes() as $connTypeID => $connTypeName )
     <td>
      <label>
       <input type="radio" name="conn_active" value="Y" required<?php
-		echo ($connConfig['active'] ?? true) ? ' checked' : ''; ?>> Yes
+		echo ($connConfig['active'] === true) ? ' checked' : ''; ?>> Yes
+     </label>
+     <br>
+     <label>
+      <input type="radio" name="conn_active" value="P" required<?php
+		echo ($connConfig['active'] === null) ? ' checked' : ''; ?>> In production only
      </label>
      <br>
      <label>
       <input type="radio" name="conn_active" value="N" required<?php
-		echo ($connConfig['active'] ?? true) ? '' : ' checked'; ?>> No
+		echo ($connConfig['active'] === false) ? ' checked' : ''; ?>> No
      </label>
     </td>
    </tr>
@@ -228,23 +238,31 @@ else
    <tr class="conn_field_cron">
     <td>Schedule</td>
     <td>
-     <input type="text" name="conn_cron_min" style="width:50px" placeholder="min"
-            title="Minutes after the hour" pattern="[1-5]?[0-9]" value="<?php
+     <input type="text" name="conn_cron_min" style="width:6em" placeholder="minute"
+            pattern="(?!,)((^|,)([1-5]?[0-9](-[1-5]?[0-9])?|\*)(\/[1-5]?[0-9])?)+"
+            title="Minutes after the hour" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_min'] ); ?>">
-     <input type="text" name="conn_cron_hr" style="width:50px" placeholder="hr"
-            title="Hour of the day" pattern="1?[0-9]|2[0-3]" value="<?php
+     <input type="text" name="conn_cron_hr" style="width:6em" placeholder="hour"
+            pattern="(?!,)((^|,)((1?[0-9]|2[0-3])(-(1?[0-9]|2[0-3]))?|\*)(\/(1?[0-9]|2[0-3]))?)+"
+            title="Hour of the day (* = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_hr'] ); ?>">
-     <input type="text" name="conn_cron_day" style="width:50px" placeholder="day"
-            title="Day of the month (* = all)" pattern="[1-9]|[12][0-9]|3[01]|\*" value="<?php
+     <input type="text" name="conn_cron_day" style="width:6em" placeholder="day"
+            pattern="(?!,)((^|,)(([1-9]|[12][0-9]|3[01])(-([1-9]|[12][0-9]|3[01]))?|\*)(\/([1-9]|[12][0-9]|3[01]))?)+"
+            title="Day of the month (* = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_day'] ); ?>">
-     <input type="text" name="conn_cron_mon" style="width:50px" placeholder="mon"
-            title="Month (* = all)" pattern="[1-9]|1[012]|\*" value="<?php
+     <input type="text" name="conn_cron_mon" style="width:6em" placeholder="month"
+            pattern="(?!,)((^|,)(([1-9]|1[012])(-([1-9]|1[012]))?|\*)(\/([1-9]|1[012]))?)+"
+            title="Month (* = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_mon'] ); ?>">
-     <input type="text" name="conn_cron_dow" style="width:50px" placeholder="dow"
-            title="Day of week (0 = Sunday, 6 = Saturday, * = all)" pattern="[0-6]|\*" value="<?php
+     <input type="text" name="conn_cron_dow" style="width:6em" placeholder="dow"
+            pattern="(?!,)((^|,)([0-6](-[0-6])?|\*)(\/[0-6])?)+"
+            title="Day of week (0 = Sunday, 6 = Saturday, * = all)" value="<?php
 		echo $module->escapeHTML( $connConfig['cron_dow'] ); ?>">
      <br>
-     (Schedule time is approximate)
+     Enter schedule in <a href="https://en.wikipedia.org/wiki/Cron" target="_blank">crontab</a> format.
+     <br>
+     The schedule time should be considered to be approximate.<br>
+     The connection is not guaranteed to run at precisely the scheduled time.
     </td>
    </tr>
 <?php
@@ -256,8 +274,7 @@ if ( \REDCap::isLongitudinal() )
     <td>
      <label>
       <input type="checkbox" name="conn_all_events" value="1"<?php
-	echo $connConfig['type'] == 'http' && isset( $connConfig['all_events'] )
-	     ? ' checked' : '' ?>>
+	echo isset( $connConfig['all_events'] ) ? ' checked' : '' ?>>
       Run separately for each event
      </label>
     </td>
@@ -268,8 +285,8 @@ if ( \REDCap::isLongitudinal() )
    <tr>
     <td>Check conditional logic</td>
     <td>
-     <textarea name="conn_condition" spellcheck="false"
-               style="height:75px;max-width:95%;font-family:monospace;white-space:pre"><?php
+     <textarea name="conn_condition" spellcheck="false" rows="3"
+               style="height:unset;max-width:95%;font-family:monospace;white-space:pre"><?php
 echo $connConfig['condition'] ?? ''; ?></textarea>
      <span id="condition_msg" style="color:#c00"></span>
     </td>
@@ -298,21 +315,27 @@ echo $connConfig['condition'] ?? ''; ?></textarea>
                                        $connData['method'] == 'delete'
                                        ? ' selected' : ''; ?>>DELETE</option>
      </select>
+     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+     <label class="http_post_as_form" style="display:none">
+      <input type="checkbox" name="http_post_as_form" value="1"<?php
+	echo isset( $connData['post_as_form'] ) ? ' checked' : '' ?>>
+      Form field mode
+     </label>
     </td>
    </tr>
    <tr>
     <td>Request Headers</td>
     <td>
-     <textarea name="http_headers" spellcheck="false"
-               style="height:200px;max-width:95%;font-family:monospace;white-space:pre"><?php
+     <textarea name="http_headers" spellcheck="false" rows="3"
+               style="height:unset;max-width:95%;font-family:monospace;white-space:pre"><?php
 echo $connData['headers'] ?? ''; ?></textarea>
     </td>
    </tr>
    <tr>
     <td>Request Body</td>
     <td>
-     <textarea name="http_body" spellcheck="false"
-               style="height:300px;max-width:95%;font-family:monospace;white-space:pre"><?php
+     <textarea name="http_body" spellcheck="false" rows="3"
+               style="height:unset;max-width:95%;font-family:monospace;white-space:pre"><?php
 echo $connData['body'] ?? ''; ?></textarea>
     </td>
    </tr>
@@ -326,7 +349,31 @@ echo $connData['body'] ?? ''; ?></textarea>
      <input type="checkbox" name="http_placeholder_response_path" value="1"<?php
 echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_path'] )
      ? ' checked' : '' ?>>
-     Also replace defined placeholder names in response value paths.
+     Also replace defined (non-authentication) placeholder names in response value paths.
+    </td>
+   </tr>
+   <tr>
+    <td>Authentication Placeholder</td>
+    <td>
+     Name:
+     <br>
+     <input type="text" name="http_auth_ph_name" autocomplete="off"
+            value="<?php echo $connConfig['type'] == 'http'
+                              ? $module->escapeHTML( $connData['auth_ph_name'] ?? '' ) : '' ?>">
+     <br>
+     Raw value:
+     <br>
+     <input type="password" name="http_auth_ph_value" autocomplete="new-password"
+            value="<?php echo $connConfig['type'] == 'http'
+                              ? $module->escapeHTML( $connData['auth_ph_value'] ?? '' ) : '' ?>"
+            onfocus="$(this).attr('type','text')" onblur="$(this).attr('type','password')">
+    </td>
+   </tr>
+   <tr>
+    <td>Predefined Placeholders</td>
+    <td>
+     REDCAP_APP_PATH_WEBROOT_FULL : <?php echo $module->escapeHTML(APP_PATH_WEBROOT_FULL); ?><br>
+     REDCAP_APP_PATH_API_FULL : <?php echo $module->escapeHTML(APP_PATH_WEBROOT_FULL); ?>api/
     </td>
    </tr>
    <tr>
@@ -335,13 +382,28 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
    </tr>
    <tr><th colspan="2">Response Fields</th></tr>
    <tr>
+    <td>Accept Response Status Codes</td>
+    <td>
+     <input type="text" name="http_response_status_codes" value="<?php
+echo $connConfig['type'] == 'http' && isset( $connData['response_status_codes'] )
+     ? $connData['response_status_codes'] : '200' ?>" pattern="[245][0-9]{2}(,[245][0-9]{2})*"
+            required title="Comma separated list of status codes e.g. '200,404'">
+    </td>
+   </tr>
+   <tr>
     <td>Response Format</td>
     <td>
      <select name="http_response_format">
       <option value="">None / Ignore</option>
+      <option value="C"<?php echo $connConfig['type'] == 'http' &&
+                                  $connData['response_format'] == 'C'
+                                  ? ' selected' : ''; ?>>CSV</option>
       <option value="J"<?php echo $connConfig['type'] == 'http' &&
                                   $connData['response_format'] == 'J'
                                   ? ' selected' : ''; ?>>JSON</option>
+      <option value="P"<?php echo $connConfig['type'] == 'http' &&
+                                  $connData['response_format'] == 'P'
+                                  ? ' selected' : ''; ?>>Plain text</option>
       <option value="X"<?php echo $connConfig['type'] == 'http' &&
                                   $connData['response_format'] == 'X'
                                   ? ' selected' : ''; ?>>XML</option>
@@ -352,6 +414,15 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
     <td></td>
     <td>
      <a href="#" id="http_add_response"><i class="fas fa-plus-circle fs12"></i> Add response field</a>
+    </td>
+   </tr>
+   <tr>
+    <td></td>
+    <td>
+     <input type="checkbox" name="http_response_save_blanks" value="1"<?php
+echo $connConfig['type'] == 'http' && isset( $connData['response_save_blanks'] )
+     ? ' checked' : '' ?>>
+     Allow blank values to overwrite existing data
     </td>
    </tr>
    <tr>
@@ -390,6 +461,15 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
     <td></td>
     <td>
      <a href="#" id="wsdl_add_response"><i class="fas fa-plus-circle fs12"></i> Add response field</a>
+    </td>
+   </tr>
+   <tr>
+    <td></td>
+    <td>
+     <input type="checkbox" name="wsdl_response_save_blanks" value="1"<?php
+echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
+     ? ' checked' : '' ?>>
+     Allow blank values to overwrite existing data
     </td>
    </tr>
   </tbody>
@@ -456,6 +536,13 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
              }, 'json')
    })
    $('input[name="conn_trigger"]:checked').click()
+   $('textarea[name="conn_condition"]').on( 'change keyup', function()
+   {
+     var vConditionField = $('textarea[name="conn_condition"]')
+     var vLines = vConditionField.val().split('\n').length
+     vConditionField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="conn_condition"]').change()
    $('select[name="http_method"]').change( function()
    {
      var vOption = $('select[name="http_method"]').val()
@@ -463,8 +550,48 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
      var vBodyField = $('textarea[name="http_body"]')
      vBodyField.prop('disabled', vHide)
      vBodyField.parent().parent().css('display', vHide ? 'none' : '')
+     $('.http_post_as_form').css('display', ( vOption == 'post') ? '' : 'none')
+     if ( vOption != 'post' )
+     {
+       $('textarea[name="http_headers"]').prop('readonly',false)
+       $('input[name="http_post_as_form"]').prop('checked',false)
+     }
    })
    $('select[name="http_method"]').change()
+   $('input[name="http_post_as_form"]').click( function()
+   {
+     if ( $('input[name="http_post_as_form"]').prop('checked') )
+     {
+       simpleDialog('In this mode, instead of entering the raw request body, you can enter each ' +
+                    'field on its own line, formatted like the example below:<br><pre style=' +
+                    '"margin-top:6px">field1=value1\r\nfield2=value2\r\nfield3=value3</pre><br>' +
+                    'Field names and values will be automatically encoded, raw placeholder values' +
+                    ' can be safely used in the request body in this mode (but placeholder values' +
+                    ' may need to be encoded if used elsewhere).',
+                    'Form field mode')
+     }
+     var vHeadersField = $('textarea[name="http_headers"]')
+     var vHeadersData = vHeadersField.val()
+     vHeadersData = vHeadersData.replace(/(?<=^|\n)Content-Type:.*?(\r?\n|$)/gi,'')
+     vHeadersData = "Content-Type: application/x-www-form-urlencoded\r\n" + vHeadersData
+     vHeadersField.val( vHeadersData )
+     var vLines = vHeadersField.val().split('\n').length
+     vHeadersField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="http_headers"]').on( 'change keyup', function()
+   {
+     var vHeadersField = $('textarea[name="http_headers"]')
+     var vLines = vHeadersField.val().split('\n').length
+     vHeadersField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="http_headers"]').change()
+   $('textarea[name="http_body"]').on( 'change keyup', function()
+   {
+     var vBodyField = $('textarea[name="http_body"]')
+     var vLines = vBodyField.val().split('\n').length
+     vBodyField.attr('rows', vLines + 2)
+   })
+   $('textarea[name="http_body"]').change()
    $('#http_add_ph').click( function()
    {
      var vPrev = $('#http_add_ph').parent().parent().prev()
@@ -478,7 +605,8 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
                   'Name:<br><input type="text" name="http_ph_name[]"><br>Value:<br>' +
                   '<?php fieldSelector('http_ph'); ?><br>Format:<br>' +
                   '<select name="http_ph_format[]"><option value="">Raw value</option>' +
-                  '<option value="base64">Base 64</option><option value="url">URL encode</option>' +
+                  '<option value="base64">Base 64</option><option value="json">JSON string</option>' +
+                  '<option value="url">URL encode</option><option value="xml">XML encode</option>' +
                   '</select></td></tr>')
      vNew.insertAfter( vPrev )
      return false
@@ -519,7 +647,8 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
      var vNew = $('<tr data-index="' + vNum + '"><td>Parameter ' + vNum + '</td><td>' +
                   'Name:<br><input type="text" name="wsdl_param_name[]"><br>Type:<br>' +
                   '<select name="wsdl_param_type[]"><option value="C">Constant value</option>' +
-                  '<option value="F">Project field</option></select><br><span>Value:<br>' +
+                  '<option value="F">Project field</option><option value="A">Authentication value' +
+                  '</option></select><br><span>Value:<br>' +
                   '<input type="text" name="wsdl_param_val[]"></span><span>Field:<br>' +
                   '<?php fieldSelector('wsdl_param'); ?>' +
                   '</span></td></tr>')
@@ -527,8 +656,18 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
      vNew.find('select[name="wsdl_param_type[]"]').change(function(){
        var vOption = vNew.find('select[name="wsdl_param_type[]"]').val()
        var vSpan = vNew.find('span')
-       vSpan.eq(0).css('display', vOption == 'C' ? '' : 'none')
+       vSpan.eq(0).css('display', ( vOption == 'C' || vOption == 'A' ) ? '' : 'none')
        vSpan.eq(1).css('display', vOption == 'F' ? '' : 'none')
+       vNew.find('input[name="wsdl_param_val[]"]')
+         .attr('type', ( vOption == 'A' ? 'password' : 'text' ))
+         .on('focus', function(){ $(this).attr('type', 'text') })
+         .on('blur', function()
+         {
+           if ( $(this).closest('tr').find('select[name="wsdl_param_type[]"]').val() == 'A' )
+           {
+             $(this).attr('type', 'password')
+           }
+         })
      })
      vNew.insertAfter( vPrev )
      return false
