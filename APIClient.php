@@ -1040,11 +1040,15 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 	function performHTTP( $connData, $recordID, $defaultInstance, $defaultEvent )
 	{
 		// Get the URL, request method, headers and body.
-		$url = $connData['url'];
+		// Any carriage return (\r) characters in the URL, headers and body are stripped out.
+		// As the carriage returns are removed, we can safely insert some later to markup the
+		// placeholder strings so these are not inadventantly replaced in already substituted data.
+		$url = str_replace( [ "\r", "\n" ], '', $connData['url'] );
 		$method = $connData['method'];
-		$headers = $connData['headers'];
-		$body = $connData['body'];
-		$this->apiDebug( 'HTTP Request (method: ' . strtoupper( $method ) . ')' );
+		$headers = trim( str_replace( "\r", '', $connData['headers'] ) );
+		$body = trim( str_replace( "\r", '', $connData['body'] ) );
+		$this->apiDebug( 'HTTP Request (method: ' . strtoupper( $method ) .
+		                 ( isset( $connData['post_as_form'] ) ? ', form field mode' : '' ) . ')' );
 		$this->apiDebug( 'Parameters (pre-placeholder replacement):' );
 		$this->apiDebug( '  HTTP URL: ' . $url );
 		$this->apiDebug( '  Headers: ' . str_replace( "\n", "\n           ", $headers ) );
@@ -1095,14 +1099,29 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				$placeholderValue = htmlspecialchars( $placeholderValue,
 				                                      ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1,
 				                                      'UTF-8' );
+				$placeholderValue = mb_encode_numericentity( $placeholderValue,
+				                                             [ 0x80, 0x1FFFFF, 0, 0x1FFFFF ],
+				                                             'UTF-8' );
 			}
 			// Add the placeholder name and formatted value to the list.
+			// Remove any carriage returns (\r) from the value, and markup the placeholder name in
+			// the URL, headers and body with carriage returns, so we will know later that these are
+			// actual placeholders and not previously substituted data.
+			$placeholderValue = str_replace( "\r", '', $placeholderValue );
+			$url = str_replace( $connData['ph_name'][$i], "\r" . $connData['ph_name'][$i], $url );
+			$headers = str_replace( $connData['ph_name'][$i],
+			                        "\r" . $connData['ph_name'][$i], $headers );
+			$body = str_replace( $connData['ph_name'][$i], "\r" . $connData['ph_name'][$i], $body );
 			$listPlaceholders[ $connData['ph_name'][$i] ] = $placeholderValue;
 		}
 		// Search/replace the placeholder names with the values.
+		// As this makes several passes (once for each placeholder), the placeholder string is only
+		// replaced where it has been marked up with a carriage return (\r) character, so a
+		// replacement is not performed on substituted data from previous passes.
 		if ( isset( $connData['post_as_form'] ) )
 		{
-			$body = explode( "\n", str_replace( "\r\n", "\n", $body ) );
+			// For form field mode, split the body into field names and values.
+			$body = explode( "\n", $body );
 			foreach ( $body as $i => $bodyItem )
 			{
 				if ( strpos( $bodyItem, '=' ) === false )
@@ -1123,23 +1142,27 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			                 str_replace( "\n",
 			                              "\n" . str_repeat( ' ', strlen( $placeholderName ) + 6 ),
 			                              $placeholderValue ) );
-			$url = str_replace( $placeholderName, $placeholderValue, $url );
-			$headers = str_replace( $placeholderName, $placeholderValue, $headers );
+			$url = str_replace( "\r" . $placeholderName, $placeholderValue, $url );
+			$headers = str_replace( "\r" . $placeholderName, $placeholderValue, $headers );
 			if ( isset( $connData['post_as_form'] ) )
 			{
+				// For form field mode, perform the replacement on each field name/value separately.
 				foreach ( $body as $i => $bodyItem )
 				{
-					$body[$i][0] = str_replace( $placeholderName, $placeholderValue, $body[$i][0] );
-					$body[$i][1] = str_replace( $placeholderName, $placeholderValue, $body[$i][1] );
+					$body[$i][0] = str_replace( "\r" . $placeholderName,
+					                            $placeholderValue, $body[$i][0] );
+					$body[$i][1] = str_replace( "\r" . $placeholderName,
+					                            $placeholderValue, $body[$i][1] );
 				}
 			}
 			else
 			{
-				$body = str_replace( $placeholderName, $placeholderValue, $body );
+				$body = str_replace( "\r" . $placeholderName, $placeholderValue, $body );
 			}
 		}
 		if ( isset( $connData['post_as_form'] ) )
 		{
+			// For form field mode, URL-encode the field names/values and join together.
 			foreach ( $body as $i => $bodyItem )
 			{
 				$bodyItem[0] = rawurlencode( $bodyItem[0] );
@@ -1148,6 +1171,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			$body = implode( '&', $body );
 		}
+		$url = str_replace( "\r", '', $url );
+		$headers = str_replace( "\r", '', $headers );
+		$body = str_replace( "\r", '', $body );
 		$this->apiDebug( 'Parameters (post-placeholder replacement):' );
 		$this->apiDebug( '  HTTP URL: ' . $url );
 		$this->apiDebug( '  Headers: ' . str_replace( "\n", "\n           ", $headers ) );
@@ -1161,11 +1187,14 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		// Use cURL to perform the HTTP request.
 		if ( $url == 'null:' )
 		{
+			// If the URL is 'null:', do not perform an actual HTTP request, just provide a
+			// successful empty result.
 			$httpResult = '';
 			$responseCode = 200;
 		}
 		else
 		{
+			// Get the CA bundle and configure TLS and proxy.
 			$curlCertBundle = $this->getSystemSetting('curl-ca-bundle');
 			$curl = curl_init( $url );
 			if ( $curlCertBundle != '' )
@@ -1183,7 +1212,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			{
 				curl_setopt( $curl, CURLOPT_PROXY, $proxyHost . ':' . $proxyPort );
 			}
+			// Request cURL return the response.
 			curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
+			// Specify the HTTP method (for POST/PUT, set the request body).
 			switch ( $method )
 			{
 				case 'get':
@@ -1191,18 +1222,18 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					break;
 				case 'post':
 					curl_setopt( $curl, CURLOPT_POST, true );
-					curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
+					curl_setopt( $curl, CURLOPT_POSTFIELDS, str_replace( "\n", "\r\n", $body ) );
 					break;
 				case 'put':
 					curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'PUT');
-					curl_setopt( $curl, CURLOPT_POSTFIELDS, $body );
+					curl_setopt( $curl, CURLOPT_POSTFIELDS, str_replace( "\n", "\r\n", $body ) );
 					break;
 				case 'delete':
 					curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'DELETE');
 					break;
 			}
-			curl_setopt( $curl, CURLOPT_HTTPHEADER,
-			             explode( "\n", str_replace( "\r\n", "\n", $headers ) ) );
+			// Set the request headers, perform the request, and get the response and status code.
+			curl_setopt( $curl, CURLOPT_HTTPHEADER, explode( "\n", $headers ) );
 			$httpResult = curl_exec( $curl );
 			$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
 		}
