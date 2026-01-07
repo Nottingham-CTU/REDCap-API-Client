@@ -287,6 +287,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				continue;
 			}
 			$isMatch = null;
+			$lastRunTime = $this->getSystemSetting( "p$projectID-conn-lastrun-$connID" );
 			// Test the current and previous month, stop if neither match.
 			if ( ! $this->matchCronPart( $cronDetails['mon'], $execMonth ) )
 			{
@@ -334,15 +335,15 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								$isMatch = true;
 							}
 						}
-						while ( ! $isMatch && ( $testHour > 0 || $testMinute > 0 ) );
+						while ( ! $isMatch && $testTime > $lastRunTime &&
+						        ( $testHour > 0 || $testMinute > 0 ) );
 					}
 				}
-				while ( ! $isMatch && $testTime > $execTime - $earliestTime );
+				while ( ! $isMatch && $testTime > $earliestTime && $testTime > $lastRunTime );
 			}
 			// If there is not a match, or if the most recent matching run time is equal or
 			// prior to the last run time, proceed to the next cron item.
-			if ( ! $isMatch ||
-			     $testTime <= $this->getSystemSetting( "p$projectID-conn-lastrun-$connID" ) )
+			if ( ! $isMatch || $testTime <= $lastRunTime )
 			{
 				continue;
 			}
