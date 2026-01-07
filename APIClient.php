@@ -1059,9 +1059,21 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		if ( isset( $connData['auth_ph_name'] ) && $connData['auth_ph_name'] != '' )
 		{
 			$listPlaceholders[ $connData['auth_ph_name'] ] = $connData['auth_ph_value'];
+			$url = str_replace( $connData['auth_ph_name'], "\r" . $connData['auth_ph_name'], $url );
+			$headers = str_replace( $connData['auth_ph_name'],
+			                        "\r" . $connData['auth_ph_name'], $headers );
+			$body = str_replace( $connData['auth_ph_name'],
+			                     "\r" . $connData['auth_ph_name'], $body );
 		}
-		$listPlaceholders['REDCAP_APP_PATH_WEBROOT_FULL'] = APP_PATH_WEBROOT_FULL;
-		$listPlaceholders['REDCAP_APP_PATH_API_FULL'] = APP_PATH_WEBROOT_FULL . 'api/';
+		foreach ( [ 'REDCAP_APP_PATH_WEBROOT_FULL' => APP_PATH_WEBROOT_FULL,
+		            'REDCAP_APP_PATH_API_FULL' => APP_PATH_WEBROOT_FULL . 'api/' ]
+		          as $placeholderName => $placeholderValue )
+		{
+			$listPlaceholders[ $placeholderName ] = $placeholderValue;
+			$url = str_replace( $placeholderName, "\r" . $placeholderName, $url );
+			$headers = str_replace( $placeholderName, "\r" . $placeholderName, $headers );
+			$body = str_replace( $placeholderName, "\r" . $placeholderName, $body );
+		}
 		if ( ! isset( $connData['ph_name'] ) || ! is_array( $connData['ph_name'] ) )
 		{
 			$connData['ph_name'] = [];
