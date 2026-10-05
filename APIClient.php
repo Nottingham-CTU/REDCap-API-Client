@@ -651,9 +651,12 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 	// Gets the list of connections, with the configuration data for each connection.
-	function getConnectionList()
+	function getConnectionList( $projectID = null )
 	{
-		$projectID = $this->getProjectID();
+		if ( $projectID === null )
+		{
+			$projectID = $this->getProjectID();
+		}
 		$listIDs = $this->getSystemSetting( "p$projectID-conn-list" );
 		if ( $listIDs === null )
 		{
@@ -1379,6 +1382,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 					$returnValue = $connData['response_val'][$i];
 					break;
 				case 'R': // response value
+				case 'Rb64': // response value (decode base 64)
 					$responsePath = $connData['response_val'][$i];
 					if ( isset( $connData['placeholder_response_path'] ) )
 					{
@@ -1418,6 +1422,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 							{
 								$returnValue = '0';
 							}
+							elseif ( $connData['response_type'][$i] == 'Rb64' )
+							{
+								$returnValue = base64_decode( $returnValue );
+							}
 						}
 					}
 					// Search a response with XPath.
@@ -1443,6 +1451,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 								if ( $httpResultItem->length > 0 )
 								{
 									$returnValue = $httpResultItem->item(0)->textContent;
+									if ( $connData['response_type'][$i] == 'Rb64' )
+									{
+										$returnValue = base64_decode( $returnValue );
+									}
 								}
 								else
 								{
@@ -1453,6 +1465,10 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 							else
 							{
 								$returnValue = strval( $httpResultItem );
+								if ( $connData['response_type'][$i] == 'Rb64' )
+								{
+									$returnValue = base64_decode( $returnValue );
+								}
 							}
 						}
 						catch ( \Exception $e )

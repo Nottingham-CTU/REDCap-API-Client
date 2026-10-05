@@ -624,6 +624,7 @@ echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
                   'Field:<br><?php fieldSelector('http_response', false); ?><br>Type:<br>' +
                   '<select name="http_response_type[]"><option value="C">Constant value</option>' +
                   '<option value="R">Response value</option>' +
+                  '<option value="Rb64">Response value (decode base 64)</option>' +
                   '<option value="S">Server date/time</option>' +
                   '<option value="U">UTC date/time</option></select><br><span>Value:<br>' +
                   '<input type="text" name="http_response_val[]"></span></td></tr>')
