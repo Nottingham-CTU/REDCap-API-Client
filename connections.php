@@ -14,6 +14,17 @@ if ( ! $module->canEditConnections() )
 }
 
 
+// The super user can run functions as part of a testing framework.
+if ( defined('SUPER_USER') && SUPER_USER == 1 && isset( $_GET['runtest'] ) )
+{
+	if ( $_GET['runtest'] == 'runCron' )
+	{
+		echo $module->escape( json_encode( $module->runCron( [] ) ) );
+		exit;
+	}
+}
+
+
 
 // Get the list of connections.
 $listConnections = $module->getConnectionList();

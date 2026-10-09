@@ -1,0 +1,16 @@
+[
+	{
+		"action" : "module",
+		"source" : "this",
+		"name" : "api_client"
+	},
+	{
+		"action" : "selenium",
+		"file" : "init.py"
+	},
+	{
+		"action" : "external-save",
+		"url" : "[secret-1]",
+		"data" : {"name":"REDCap API Client Module Functionality Testing.pdf","file":"[pdf-inst]","version":"[unit-version] / RC [redcap-version]"}
+	}
+]

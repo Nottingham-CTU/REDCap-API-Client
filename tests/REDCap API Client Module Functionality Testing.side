@@ -1,0 +1,1253 @@
+{
+  "id": "d1730086-5d10-452b-8c68-629440c1879a",
+  "version": "3.0",
+  "name": "REDCap API Client Module Functionality Testing",
+  "url": "http://127.0.0.1",
+  "urls": [
+    "http://127.0.0.1"
+  ],
+  "plugins": [],
+  "suites": [
+    {
+      "id": "94045a48-83d3-44a5-bdee-070f46070b56",
+      "name": "New Suite",
+      "parallel": false,
+      "persistSession": false,
+      "tests": [],
+      "timeout": 30000
+    }
+  ],
+  "tests": [
+    {
+      "id": "82ff9c1d-d3b6-4ec7-ad35-154ad35e3914",
+      "name": "init",
+      "commands": [
+        {
+          "id": "7cab94f1-54ac-4fda-bd4e-43cf6db1f474",
+          "command": "open",
+          "target": "/",
+          "value": ""
+        },
+        {
+          "command": "click",
+          "target": "linkText=My Projects",
+          "value": "",
+          "id": "496f757a-137f-4b7c-893a-875a4cdf6eee"
+        },
+        {
+          "command": "assertElementNotPresent",
+          "target": "xpath=//*[@id=\"table-proj_table\"][contains(.,'API Client Test')]",
+          "value": "",
+          "id": "bd2098fe-40b8-4561-9da5-7e966e803233"
+        },
+        {
+          "command": "click",
+          "target": "linkText=New Project",
+          "value": "",
+          "id": "e4d39210-e03c-47f3-a336-868da29b1dd4"
+        },
+        {
+          "command": "type",
+          "target": "id=app_title",
+          "value": "API Client Test",
+          "id": "66cd2e97-ab64-4ecb-aa32-098dfea66107"
+        },
+        {
+          "command": "select",
+          "target": "name=purpose",
+          "value": "value=0",
+          "id": "4cfdf708-8926-4e68-8257-92ba797ea927"
+        },
+        {
+          "command": "click",
+          "target": "id=project_template_radio1",
+          "value": "",
+          "id": "96ff2c72-2b90-4162-a697-7842b40ce012"
+        },
+        {
+          "command": "click",
+          "target": "css=input[name=\"copyof\"][value=\"1\"]",
+          "value": "",
+          "id": "62b822a7-5bcf-4814-ac37-7167e9fdfbac"
+        },
+        {
+          "command": "click",
+          "target": "css=.btn-primaryrc",
+          "value": "",
+          "id": "90ef843f-740e-4123-a8ee-1fcd4a37f1b9"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"ExternalModules/manager/project.php\"]",
+          "value": "",
+          "id": "afa10421-1c3f-4939-91a3-84923ffe38f3"
+        },
+        {
+          "command": "click",
+          "target": "id=external-modules-enable-modules-button",
+          "value": "",
+          "id": "cabe4e1f-b2f7-4f03-934d-ada5be8e8f76"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=tr[data-module=\"api_client\"] button.enable-button",
+          "value": "30000",
+          "id": "dce7e9d0-7269-47c3-91d1-06261def330b"
+        },
+        {
+          "command": "click",
+          "target": "css=tr[data-module=\"api_client\"] button.enable-button",
+          "value": "",
+          "id": "fafa0985-7459-4112-9c21-04f083a52aae"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=tr[data-module=\"api_client\"] button.external-modules-configure-button",
+          "value": "30000",
+          "id": "a03c8cc5-963e-4193-9898-9d929fdd63bf"
+        }
+      ]
+    },
+    {
+      "id": "bac59611-45ce-45f0-a53f-4f34f86ec492",
+      "name": "t01 - HTTP on form submit",
+      "commands": [
+        {
+          "id": "53a50240-b8aa-40ca-9b5c-cbdf60b533a5",
+          "command": "open",
+          "target": "/",
+          "value": ""
+        },
+        {
+          "command": "click",
+          "target": "linkText=My Projects",
+          "value": "",
+          "id": "6acedec9-4f9f-4bde-98f4-f769b57382ce"
+        },
+        {
+          "command": "assertElementPresent",
+          "target": "xpath=//*[@id=\"table-proj_table\"][contains(.,'API Client Test')]",
+          "value": "",
+          "id": "1abe940f-75c1-4e2d-825e-cc54f65a5ba4"
+        },
+        {
+          "command": "click",
+          "target": "linkText=API Client Test",
+          "value": "",
+          "id": "0551079a-eff8-45ab-ba4e-504835673aea"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=connections\"]",
+          "value": "",
+          "id": "646425cf-f313-478d-874b-93dd03d747dd"
+        },
+        {
+          "command": "click",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "",
+          "id": "f14df3b2-2cc1-4b44-b3f2-499eb395817d"
+        },
+        {
+          "command": "runScript",
+          "target": "$('#connform input[type=\"text\"], #connform input[type=\"password\"], #connform textarea').css('max-width','350px')",
+          "value": "",
+          "id": "8544272b-e91c-43c1-8461-0c47b90dfc55"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_label",
+          "value": "HTTP Connection",
+          "id": "ea783f80-6130-44e7-8a73-da72427f253a"
+        },
+        {
+          "command": "select",
+          "target": "name=conn_type",
+          "value": "value=http",
+          "id": "4a58a2df-b004-4630-9861-76d9151668be"
+        },
+        {
+          "command": "click",
+          "target": "css=input[name=\"conn_active\"][value=\"Y\"]",
+          "value": "",
+          "id": "16744a56-ee46-4f05-a796-2746309ac006"
+        },
+        {
+          "command": "type",
+          "target": "name=http_url",
+          "value": "https://echo.zuplo.io/?a=PHA&b=PHB",
+          "id": "a6f7092c-fb40-4b4c-af11-ef92d96589a3"
+        },
+        {
+          "command": "type",
+          "target": "name=http_auth_ph_name",
+          "value": "PHA",
+          "id": "324ad204-b17d-406c-81de-e9001d591d36"
+        },
+        {
+          "command": "type",
+          "target": "name=http_auth_ph_value",
+          "value": "1",
+          "id": "4f9a4286-f51a-4727-856f-d437f6cbf25b"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_ph",
+          "value": "",
+          "id": "42c5fb96-fb6b-48d1-887b-14159d904add"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"1\"] input[name=\"http_ph_name[]\"]",
+          "value": "PHB",
+          "id": "5ddcf686-9f3e-4ca8-912a-6f810bf27065"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"http_ph_field[]\"]",
+          "value": "value=first_name",
+          "id": "c51bac1d-ab78-42e6-a849-155db0f692f8"
+        },
+        {
+          "command": "select",
+          "target": "name=http_response_format",
+          "value": "value=J",
+          "id": "828c0b94-b0dc-4a45-9e9c-db847db8e58f"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_response",
+          "value": "",
+          "id": "87a388cd-4dc2-49a9-9d92-975fa7f536bc"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"http_response_field[]\"]",
+          "value": "value=last_name",
+          "id": "884d688f-fc8e-42be-983e-7c0d07e0e7d6"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"http_response_type[]\"]",
+          "value": "value=R",
+          "id": "b5d23cec-992e-401c-879b-f9620190b693"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"1\"] input[name=\"http_response_val[]\"]",
+          "value": "//query/b",
+          "id": "cb6b4fd7-971b-4957-9482-8934977af76c"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_response",
+          "value": "",
+          "id": "16b082e1-61db-4fac-82a8-155415e9d4a7"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"2\"] select[name=\"http_response_field[]\"]",
+          "value": "value=race",
+          "id": "31b7d3b4-8f7a-4ffe-b440-8dbbee84c4af"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"2\"] select[name=\"http_response_type[]\"]",
+          "value": "value=R",
+          "id": "735498d2-8122-428f-a2a4-0adc8bc0592b"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"2\"] input[name=\"http_response_val[]\"]",
+          "value": "//query/a",
+          "id": "94f882fa-a2ac-4b26-a4d0-c5238345a0f5"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_response",
+          "value": "",
+          "id": "3e50167f-e581-45e5-9cb7-7ad1b6c711c2"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"3\"] select[name=\"http_response_field[]\"]",
+          "value": "value=address",
+          "id": "299890df-e24d-442e-b128-83fee3301abc"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"3\"] select[name=\"http_response_type[]\"]",
+          "value": "value=C",
+          "id": "8e5fdd97-14a9-41da-a2e4-685c711c4793"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"3\"] input[name=\"http_response_val[]\"]",
+          "value": "Example value",
+          "id": "c168a53b-0831-498a-a893-b410fea932ef"
+        },
+        {
+          "command": "click",
+          "target": "css=input[type=\"submit\"]",
+          "value": "",
+          "id": "28b99963-0216-4510-b392-b366d3fbbe95"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "0ca3f756-88ec-4f7b-ab56-3940eef5aadf"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"record_status_dashboard.php\"]",
+          "value": "",
+          "id": "0cc8fe4e-8d7f-43bd-9aa9-44bc51318b77"
+        },
+        {
+          "command": "click",
+          "target": "css=button[onclick*=\"record_home.php\"]",
+          "value": "",
+          "id": "37b70afc-40df-4a26-968e-b685eadc1319"
+        },
+        {
+          "command": "click",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "",
+          "id": "a69cd2c3-d735-412c-b042-a2855124cb77"
+        },
+        {
+          "command": "type",
+          "target": "name=first_name",
+          "value": "TestName",
+          "id": "c6da186e-b551-4b7d-a2d1-17670a04ef34"
+        },
+        {
+          "command": "click",
+          "target": "css=button[id=\"submit-btn-saverecord\"]",
+          "value": "",
+          "id": "71bbfbc8-399b-414d-8a35-8a71d3920850"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "30000",
+          "id": "146b99ca-c29a-4828-b34a-0f2a408eb9bf"
+        },
+        {
+          "command": "click",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "",
+          "id": "c5e153f9-1faf-481b-8ab4-95d9d923c7c8"
+        },
+        {
+          "command": "runScript",
+          "target": "//SETDESC:Assert that the fields now have the expected values following the API request.",
+          "value": "",
+          "id": "8a96edba-186a-458f-95c5-d0328bb5f095"
+        },
+        {
+          "command": "type",
+          "target": "name=address",
+          "value": "SAVESCREENSHOT",
+          "id": "e691f0df-c1cb-4f1c-ab92-31fb2d889da7"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=first_name",
+          "value": "TestName",
+          "id": "302aefd4-8328-4864-899b-5b0937a6adc4"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=last_name",
+          "value": "TestName",
+          "id": "dd0a3855-d350-40f7-8e21-316e7a967b4f"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=address",
+          "value": "Example value",
+          "id": "48050a29-2178-4e24-b81c-8f43ff44798e"
+        },
+        {
+          "command": "assertSelectedValue",
+          "target": "name=race",
+          "value": "1",
+          "id": "f9542b1c-c122-4757-97f3-616859b7c8c6"
+        },
+        {
+          "command": "click",
+          "target": "name=submit-btn-deleteform",
+          "value": "",
+          "id": "62272272-b813-4d4f-b775-fd9f7e7b2a97"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(text(),'Delete data for THIS FORM only')]",
+          "value": "",
+          "id": "92e1cff3-dd37-4375-8a2d-5ac7b44dc831"
+        },
+        {
+          "command": "click",
+          "target": "id=recordActionDropdownTrigger",
+          "value": "",
+          "id": "01c9cef5-f631-416c-b455-89d75c21016e"
+        },
+        {
+          "command": "click",
+          "target": "css=a[onclick*=\"delete_record_dialog\"]",
+          "value": "",
+          "id": "788da82e-ac11-4163-aeaf-51878b6ae875"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(@class,'ok-button')][contains(text(),'DELETE')]",
+          "value": "",
+          "id": "bf192d0f-5909-4f70-bd75-b66a65e49ea0"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(@class,'close-button')][text()='Close']",
+          "value": "",
+          "id": "348e590e-9e0a-415b-9c49-5970953b8c41"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=connections\"]",
+          "value": "",
+          "id": "a2c2a27e-318e-408e-8218-1ff2600ff394"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=edit_connection\"][href*=\"conn_id=\"]",
+          "value": "",
+          "id": "e798fb4a-006c-476e-b1c0-7eac163f8b37"
+        },
+        {
+          "command": "click",
+          "target": "css=a[onclick*=\"delconnform\"]",
+          "value": "",
+          "id": "a7c4e9fe-a7f3-41c2-b3ea-904678a7770e"
+        },
+        {
+          "command": "acceptAlert",
+          "target": "",
+          "value": "",
+          "id": "338524cc-3ac3-48e5-9e26-6ac7d9ea204b"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "0c2a475a-870c-45e0-916f-5a300acc54e0"
+        }
+      ]
+    },
+    {
+      "id": "e7fde510-4189-4209-8bc9-b1f6d30e679a",
+      "name": "t02 - SOAP on form submit",
+      "commands": [
+        {
+          "id": "784a8ddb-46b3-4872-b074-98d6cdb61eac",
+          "command": "open",
+          "target": "/",
+          "value": ""
+        },
+        {
+          "command": "click",
+          "target": "linkText=My Projects",
+          "value": "",
+          "id": "8150f825-5761-4752-9a8d-92a2ef850f6a"
+        },
+        {
+          "command": "assertElementPresent",
+          "target": "xpath=//*[@id=\"table-proj_table\"][contains(.,'API Client Test')]",
+          "value": "",
+          "id": "bc110ddf-461a-43fc-86cc-c529a8f209c6"
+        },
+        {
+          "command": "click",
+          "target": "linkText=API Client Test",
+          "value": "",
+          "id": "b195d118-e48a-478b-b71e-ae571657afea"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=connections\"]",
+          "value": "",
+          "id": "c437aa01-4485-4af8-a070-bd2b60f50350"
+        },
+        {
+          "command": "click",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "",
+          "id": "c0c9257a-4a5a-44c6-9095-ef5ebabec690"
+        },
+        {
+          "command": "runScript",
+          "target": "$('#connform input[type=\"text\"], #connform input[type=\"password\"], #connform textarea').css('max-width','350px')",
+          "value": "",
+          "id": "7ebedff0-3727-4169-ab13-d04c63659ed1"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_label",
+          "value": "SOAP Connection",
+          "id": "30b3ff45-2edd-4737-9dfb-d38d2265ee67"
+        },
+        {
+          "command": "select",
+          "target": "name=conn_type",
+          "value": "value=wsdl",
+          "id": "6a629b17-7bd0-440b-8917-9dc529c0675f"
+        },
+        {
+          "command": "click",
+          "target": "css=input[name=\"conn_active\"][value=\"Y\"]",
+          "value": "",
+          "id": "77b236a3-975d-4f44-b1e8-3d5ea101fcf2"
+        },
+        {
+          "command": "type",
+          "target": "name=wsdl_url",
+          "value": "http://www.dneonline.com/calculator.asmx?wsdl",
+          "id": "5e210968-3a41-4dce-a2a0-a739fc31e2ea"
+        },
+        {
+          "command": "type",
+          "target": "name=wsdl_function",
+          "value": "Add",
+          "id": "8669885e-4687-4a84-94d2-ee7a6c0ddfb0"
+        },
+        {
+          "command": "click",
+          "target": "id=wsdl_add_param",
+          "value": "",
+          "id": "ce32b1c0-726d-4f8f-a656-7a584eaef123"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"1\"] input[name=\"wsdl_param_name[]\"]",
+          "value": "intA",
+          "id": "e7642952-b071-4c2c-930c-8ddc41c02bc1"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"wsdl_param_type[]\"]",
+          "value": "value=F",
+          "id": "f0c0a03d-c136-46ba-b46d-74644ea844b7"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"wsdl_param_field[]\"]",
+          "value": "value=first_name",
+          "id": "f9e63909-a757-49d2-91b9-dbda07e0e325"
+        },
+        {
+          "command": "click",
+          "target": "id=wsdl_add_param",
+          "value": "",
+          "id": "6f3bfce2-c88e-4160-8fc6-904ef5846b99"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"2\"] input[name=\"wsdl_param_name[]\"]",
+          "value": "intB",
+          "id": "b9dd1b7f-16f9-435b-8c0e-c150916552f1"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"2\"] select[name=\"wsdl_param_type[]\"]",
+          "value": "value=C",
+          "id": "3073376b-29be-4019-9a9a-f89884babbd4"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"2\"] input[name=\"wsdl_param_val[]\"]",
+          "value": "3",
+          "id": "f689e0d6-c0ca-4eea-9390-c0b9c6e7e1db"
+        },
+        {
+          "command": "click",
+          "target": "id=wsdl_add_response",
+          "value": "",
+          "id": "93dfe765-ef96-44d9-8861-0827c2cb4d10"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"wsdl_response_field[]\"]",
+          "value": "value=last_name",
+          "id": "c2fcc505-8b66-4565-8be0-b439710a8a4c"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"wsdl_response_type[]\"]",
+          "value": "value=R",
+          "id": "5594db73-70b8-4705-a4b0-fdebec0c808b"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"1\"] input[name=\"wsdl_response_val[]\"]",
+          "value": "AddResult",
+          "id": "4f9032bd-8d2c-43eb-a1da-68fff8005d9a"
+        },
+        {
+          "command": "click",
+          "target": "id=wsdl_add_response",
+          "value": "",
+          "id": "e3eec5b1-22d8-4dc2-92ad-1426c8174424"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"2\"] select[name=\"wsdl_response_field[]\"]",
+          "value": "value=address",
+          "id": "dd067352-5a21-488c-b03c-e2d1fd87f57f"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"2\"] select[name=\"wsdl_response_type[]\"]",
+          "value": "value=C",
+          "id": "f73615ac-db56-46bf-8793-afec077475d7"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"2\"] input[name=\"wsdl_response_val[]\"]",
+          "value": "Example value",
+          "id": "e25e0cec-dbd8-4d8e-a44d-fb61df80a632"
+        },
+        {
+          "command": "click",
+          "target": "css=input[type=\"submit\"]",
+          "value": "",
+          "id": "4e4e09f1-194c-461e-aec0-ad130e959760"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "f52ba720-3787-419a-ad3f-9b218bbc3768"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"record_status_dashboard.php\"]",
+          "value": "",
+          "id": "abad5f30-82d8-44e5-9cc0-e57ff97902d3"
+        },
+        {
+          "command": "click",
+          "target": "css=button[onclick*=\"record_home.php\"]",
+          "value": "",
+          "id": "abb3582b-56ce-4060-a485-b33c496f5734"
+        },
+        {
+          "command": "click",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "",
+          "id": "ebca037a-625d-49a0-abf7-2794f894ca1a"
+        },
+        {
+          "command": "type",
+          "target": "name=first_name",
+          "value": "2",
+          "id": "6360fb6d-1d0f-4ffe-9d50-ac76442d2705"
+        },
+        {
+          "command": "click",
+          "target": "css=button[id=\"submit-btn-saverecord\"]",
+          "value": "",
+          "id": "ff3dfb3c-8b9d-43e0-9a4c-c14800abbef6"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "30000",
+          "id": "72552080-58dc-4db2-b6f4-987ba2ed26ca"
+        },
+        {
+          "command": "click",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "",
+          "id": "23a0f85d-00a8-4275-95d7-7ae9fc7184ce"
+        },
+        {
+          "command": "runScript",
+          "target": "//SETDESC:Assert that the fields now have the expected values following the API request.",
+          "value": "",
+          "id": "23331672-9bda-4d68-ae65-d2222d514b10"
+        },
+        {
+          "command": "type",
+          "target": "name=address",
+          "value": "SAVESCREENSHOT",
+          "id": "ae71fee9-476d-4df0-bf5d-e23a22c4f22e"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=first_name",
+          "value": "2",
+          "id": "7a194f0e-2f99-422f-b6d7-1017e354a683"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=last_name",
+          "value": "5",
+          "id": "186e6239-7f5f-401f-94c3-a14eb7f9a15a"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=address",
+          "value": "Example value",
+          "id": "43606985-7465-41a9-b803-7cd306bd6834"
+        },
+        {
+          "command": "click",
+          "target": "name=submit-btn-deleteform",
+          "value": "",
+          "id": "6c63af33-b650-4b21-9ae2-e21d91653949"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(text(),'Delete data for THIS FORM only')]",
+          "value": "",
+          "id": "8514d5ed-c400-4fb6-8af9-57683ad3cf5b"
+        },
+        {
+          "command": "click",
+          "target": "id=recordActionDropdownTrigger",
+          "value": "",
+          "id": "7e0463ba-5e0b-4edd-a599-08b0ef25056d"
+        },
+        {
+          "command": "click",
+          "target": "css=a[onclick*=\"delete_record_dialog\"]",
+          "value": "",
+          "id": "28cbc285-b6f2-431f-878f-f80114834c06"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(@class,'ok-button')][contains(text(),'DELETE')]",
+          "value": "",
+          "id": "96f88a31-8636-467c-ac4b-2660585d289f"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(@class,'close-button')][text()='Close']",
+          "value": "",
+          "id": "3e8b0b3e-c81d-4bdc-85d1-3c6d83492116"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=connections\"]",
+          "value": "",
+          "id": "a4d4a452-d952-4d40-87f3-962155b97951"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=edit_connection\"][href*=\"conn_id=\"]",
+          "value": "",
+          "id": "c4781c7b-4df5-46fa-8798-c233ec9a3922"
+        },
+        {
+          "command": "click",
+          "target": "css=a[onclick*=\"delconnform\"]",
+          "value": "",
+          "id": "b3f11adc-a98e-419c-af3e-e01ad43e661d"
+        },
+        {
+          "command": "acceptAlert",
+          "target": "",
+          "value": "",
+          "id": "525369c4-2f9a-445f-ad24-f31bcacece79"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "029ed38b-69f3-45fd-90ac-87bc805f4113"
+        }
+      ]
+    },
+    {
+      "id": "c864c0d4-d13c-405b-aa4d-8f0d52f57d65",
+      "name": "t03 - Trigger on schedule",
+      "commands": [
+        {
+          "id": "2fef9a58-4be5-4797-a05c-02392abc88e5",
+          "command": "open",
+          "target": "/",
+          "value": ""
+        },
+        {
+          "command": "click",
+          "target": "linkText=My Projects",
+          "value": "",
+          "id": "3e1d8139-deb6-4ef2-b301-56deb2394997"
+        },
+        {
+          "command": "assertElementPresent",
+          "target": "xpath=//*[@id=\"table-proj_table\"][contains(.,'API Client Test')]",
+          "value": "",
+          "id": "3c89b498-8225-422d-83cd-7e7f5621fb60"
+        },
+        {
+          "command": "click",
+          "target": "linkText=API Client Test",
+          "value": "",
+          "id": "8bb27f12-19d3-4ab8-aac8-72c5f254af9a"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=connections\"]",
+          "value": "",
+          "id": "4242baa1-6d5f-43e5-9901-14e17b9520e4"
+        },
+        {
+          "command": "click",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "",
+          "id": "b70a7a65-759f-489f-9e30-ae7ce75e7749"
+        },
+        {
+          "command": "runScript",
+          "target": "$('#connform input[type=\"text\"], #connform input[type=\"password\"], #connform textarea').css('max-width','350px')",
+          "value": "",
+          "id": "1c6e1321-796f-4aec-b22c-6fd382e8b30e"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_label",
+          "value": "HTTP Connection",
+          "id": "92642992-bf7d-46cf-8d81-56d14d5a63ce"
+        },
+        {
+          "command": "select",
+          "target": "name=conn_type",
+          "value": "value=http",
+          "id": "11f65c7e-1c00-47ef-b79a-7c5f48bcb97d"
+        },
+        {
+          "command": "click",
+          "target": "css=input[name=\"conn_active\"][value=\"Y\"]",
+          "value": "",
+          "id": "a4d18adf-3c1e-4f58-a922-5984b74eb05b"
+        },
+        {
+          "command": "click",
+          "target": "css=input[name=\"conn_trigger\"][value=\"C\"]",
+          "value": "",
+          "id": "0ade2c84-5a1c-44c4-8656-5b508761cbd2"
+        },
+        {
+          "command": "executeScript",
+          "target": "return '' + ((new Date().getMinutes()+2)%60)",
+          "value": "minuteVal",
+          "id": "ea99803d-678b-4f97-b378-05d9b0397d48"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_cron_min",
+          "value": "${minuteVal}",
+          "id": "c609512d-5ad6-4c85-a369-e495aaf2f8c7"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_cron_hr",
+          "value": "*",
+          "id": "d12aa145-a9a7-4a19-9f9d-be2c8a027d69"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_cron_day",
+          "value": "*",
+          "id": "92327757-1ad6-4cb8-a049-c81ef8de8ea8"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_cron_mon",
+          "value": "*",
+          "id": "09211195-cea3-41e3-ad9d-8c98db1cf219"
+        },
+        {
+          "command": "type",
+          "target": "name=conn_cron_dow",
+          "value": "*",
+          "id": "a8c50fe8-79dc-4560-8360-9eebf3f153cf"
+        },
+        {
+          "command": "type",
+          "target": "name=http_url",
+          "value": "https://echo.zuplo.io/?a=PHA&b=PHB",
+          "id": "3ea06208-0eff-4f69-80ba-e372182ecece"
+        },
+        {
+          "command": "type",
+          "target": "name=http_auth_ph_name",
+          "value": "PHA",
+          "id": "38b3b1e4-f9ad-4e0f-bdb6-0ea95711669b"
+        },
+        {
+          "command": "type",
+          "target": "name=http_auth_ph_value",
+          "value": "1",
+          "id": "42f5bd53-404e-4b1c-81a2-b6350afeee6b"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_ph",
+          "value": "",
+          "id": "614f50df-fa91-4181-991b-c822fb42f1a8"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"1\"] input[name=\"http_ph_name[]\"]",
+          "value": "PHB",
+          "id": "85904747-d1c9-48ad-a950-23dd2543185e"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"http_ph_field[]\"]",
+          "value": "value=first_name",
+          "id": "9fa62d8e-8249-4f62-b9dc-b247f1e98f7f"
+        },
+        {
+          "command": "select",
+          "target": "name=http_response_format",
+          "value": "value=J",
+          "id": "92d8bb6e-18de-41a1-8021-90a4e386241c"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_response",
+          "value": "",
+          "id": "2b1bf3ae-91b1-4834-884c-252587bfafc1"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"http_response_field[]\"]",
+          "value": "value=last_name",
+          "id": "b27a2bf1-f841-418c-8901-21c023a00b4c"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"1\"] select[name=\"http_response_type[]\"]",
+          "value": "value=R",
+          "id": "36bd6512-a05a-46e6-aac2-04d68134803b"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"1\"] input[name=\"http_response_val[]\"]",
+          "value": "//query/b",
+          "id": "703bb1b3-9d38-4278-bbc3-d617b0e8829b"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_response",
+          "value": "",
+          "id": "a26124b4-2f84-45f4-927f-6a326e741584"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"2\"] select[name=\"http_response_field[]\"]",
+          "value": "value=race",
+          "id": "5ac4b7b0-401a-4732-9473-ab3e8441bd37"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"2\"] select[name=\"http_response_type[]\"]",
+          "value": "value=R",
+          "id": "33e4bd64-7bdf-4ad3-a6e5-5873f71ba489"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"2\"] input[name=\"http_response_val[]\"]",
+          "value": "//query/a",
+          "id": "e59a5f79-e48a-490f-a273-ba76d57731a7"
+        },
+        {
+          "command": "click",
+          "target": "id=http_add_response",
+          "value": "",
+          "id": "bee98dc1-0b8a-485b-ab7f-22dc0f7a1d98"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"3\"] select[name=\"http_response_field[]\"]",
+          "value": "value=address",
+          "id": "3a5b8545-deeb-4f8b-9454-a7c01eddf06b"
+        },
+        {
+          "command": "select",
+          "target": "css=tr[data-index=\"3\"] select[name=\"http_response_type[]\"]",
+          "value": "value=C",
+          "id": "b2b120b8-a25d-4277-9eea-8092b1489420"
+        },
+        {
+          "command": "type",
+          "target": "css=tr[data-index=\"3\"] input[name=\"http_response_val[]\"]",
+          "value": "Example value",
+          "id": "95063faf-c20b-4e54-a263-93c1b50eb05e"
+        },
+        {
+          "command": "click",
+          "target": "css=input[type=\"submit\"]",
+          "value": "",
+          "id": "2047de22-cc3a-4719-a324-fc2fead33ad2"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "08df5448-66fc-4f35-922e-ae1f65ae2a19"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"record_status_dashboard.php\"]",
+          "value": "",
+          "id": "4d267875-1286-42f0-9d6f-f4c051204f1d"
+        },
+        {
+          "command": "click",
+          "target": "css=button[onclick*=\"record_home.php\"]",
+          "value": "",
+          "id": "ad890836-706b-4efe-a271-2e08a4ae1ca5"
+        },
+        {
+          "command": "click",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "",
+          "id": "8a3598c2-76d3-4a7e-bf7a-e8f9e99cfca1"
+        },
+        {
+          "command": "type",
+          "target": "name=first_name",
+          "value": "TestName3",
+          "id": "ad6d205d-c4eb-49e5-996b-e74245970f6c"
+        },
+        {
+          "command": "click",
+          "target": "css=button[id=\"submit-btn-saverecord\"]",
+          "value": "",
+          "id": "95619fe4-3070-48ee-8e3f-21cff568012a"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "30000",
+          "id": "ef3f4e33-f0b1-4c5b-a389-1c8151afbed1"
+        },
+        {
+          "command": "click",
+          "target": "css=#event_grid_table a[href*=\"page=demographics\"]",
+          "value": "",
+          "id": "ad26fe4c-7323-4889-b31d-0efb741fb78e"
+        },
+        {
+          "command": "runScript",
+          "target": "//SETDESC:Assert that only the First Name field has a value prior to the API request.",
+          "value": "",
+          "id": "eacb9516-3fe9-4109-b8a7-60557eb3c0ed"
+        },
+        {
+          "command": "type",
+          "target": "name=address",
+          "value": "SAVESCREENSHOT",
+          "id": "0399f52b-3cf5-4a2e-9768-cbaa823efbf9"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=first_name",
+          "value": "TestName3",
+          "id": "ef70f380-2914-4bf7-b13e-b70a9acd2c70"
+        },
+        {
+          "command": "assertElementPresent",
+          "target": "xpath=//*[@name='last_name'][@value='']",
+          "value": "",
+          "id": "203ecc69-b082-4ded-aaea-a5a5e8d5be4a"
+        },
+        {
+          "command": "assertElementPresent",
+          "target": "xpath=//*[@name='address'][.='']",
+          "value": "",
+          "id": "eb1735da-3aa1-4493-9c3a-c10909ee9314"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=connections\"]",
+          "value": "",
+          "id": "a8cce01c-f140-49e0-85e6-651bcaa5d934"
+        },
+        {
+          "command": "while",
+          "target": "new Date().getMinutes() != ${minuteVal} || new Date().getSeconds() < 10",
+          "value": "300",
+          "id": "a1dd5a22-5491-4a97-b89e-7cda6578958c"
+        },
+        {
+          "command": "pause",
+          "target": "2000",
+          "value": "",
+          "id": "7ae64788-bb56-4467-ba79-cfc38cb0bd3a"
+        },
+        {
+          "command": "end",
+          "target": "",
+          "value": "",
+          "id": "3df0963b-72bf-440b-ad60-9f145009f402"
+        },
+        {
+          "command": "runScript",
+          "target": "//SAVEDESC:Trigger cron task",
+          "value": "",
+          "id": "70a7445f-52f4-40bf-8cc8-7b9c860ad850"
+        },
+        {
+          "command": "runScript",
+          "target": "window.location = window.location.href + '&runtest=runCron'",
+          "value": "",
+          "id": "5de213a4-f0af-4774-be13-1d531ea44453"
+        },
+        {
+          "command": "waitForElementNotPresent",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "fdddc437-5510-4149-9746-861580ba0cbb"
+        },
+        {
+          "command": "runScript",
+          "target": "window.history.back()",
+          "value": "",
+          "id": "6bce240c-a370-4c46-b474-e8cc6ce0f981"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "2353899f-94bd-4768-a25c-160a75f08c46"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"record_status_dashboard.php\"]",
+          "value": "",
+          "id": "d3b9f5a1-859c-4dee-b5f4-a4fae2a6ae70"
+        },
+        {
+          "command": "click",
+          "target": "css=table a[href*=\"page=demographics\"]",
+          "value": "",
+          "id": "fe4fd646-0144-4b61-b1ad-9a5701a3548c"
+        },
+        {
+          "command": "runScript",
+          "target": "//SETDESC:Assert that the fields now have the expected values following the API request.",
+          "value": "",
+          "id": "3e0fc5be-3050-4a75-b709-20242f89aa47"
+        },
+        {
+          "command": "type",
+          "target": "name=address",
+          "value": "SAVESCREENSHOT",
+          "id": "dd43c7b7-303a-43b8-8ed2-b4829730020f"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=first_name",
+          "value": "TestName3",
+          "id": "eb7ad2f9-0f77-447a-9407-2b7bc924c3c1"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=last_name",
+          "value": "TestName3",
+          "id": "a688347f-2de6-41e3-8ba0-8b07334f67e1"
+        },
+        {
+          "command": "assertValue",
+          "target": "name=address",
+          "value": "Example value",
+          "id": "e6def635-2731-44e3-a864-3c37ca814d3b"
+        },
+        {
+          "command": "assertSelectedValue",
+          "target": "name=race",
+          "value": "1",
+          "id": "06fcb549-2f17-4dac-bc0e-26fc5eb89ab3"
+        },
+        {
+          "command": "click",
+          "target": "name=submit-btn-deleteform",
+          "value": "",
+          "id": "2d203f37-367a-4453-b544-4d6ea345b000"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(text(),'Delete data for THIS FORM only')]",
+          "value": "",
+          "id": "fbbaeacc-9bac-467d-8c58-90e6ce6edeb4"
+        },
+        {
+          "command": "click",
+          "target": "id=recordActionDropdownTrigger",
+          "value": "",
+          "id": "167f1c1e-a03a-445a-b421-3add653be524"
+        },
+        {
+          "command": "click",
+          "target": "css=a[onclick*=\"delete_record_dialog\"]",
+          "value": "",
+          "id": "5b3b33a3-8701-47f7-8c9e-aaa4a4bb3258"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(@class,'ok-button')][contains(text(),'DELETE')]",
+          "value": "",
+          "id": "26ae4d3e-f6b0-424c-9e3d-837335dbfb11"
+        },
+        {
+          "command": "click",
+          "target": "xpath=//button[contains(@class,'close-button')][text()='Close']",
+          "value": "",
+          "id": "296190e3-0a72-4848-815b-299df0003e7e"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=connections\"]",
+          "value": "",
+          "id": "3e842b33-5e54-4228-9846-620a502416f5"
+        },
+        {
+          "command": "click",
+          "target": "css=a[href*=\"prefix=api_client\"][href*=\"page=edit_connection\"][href*=\"conn_id=\"]",
+          "value": "",
+          "id": "c5a38512-59e2-4b60-87fe-946b1c2c0f97"
+        },
+        {
+          "command": "click",
+          "target": "css=a[onclick*=\"delconnform\"]",
+          "value": "",
+          "id": "53c3b7e4-d8fc-41f1-baeb-e79848dc1f92"
+        },
+        {
+          "command": "acceptAlert",
+          "target": "",
+          "value": "",
+          "id": "57ce246b-1f51-4132-8937-19cc76865569"
+        },
+        {
+          "command": "waitForElementPresent",
+          "target": "css=button[onclick*=\"prefix=api_client\"][onclick*=\"page=edit_connection\"]",
+          "value": "30000",
+          "id": "a3739d99-d021-4861-bedc-81cd606c1740"
+        }
+      ]
+    }
+  ],
+  "snapshot": {
+    "dependencies": {},
+    "tests": [],
+    "jest": {
+      "extraGlobals": []
+    }
+  }
+}
