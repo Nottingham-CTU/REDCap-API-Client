@@ -75,9 +75,12 @@ in the project menu under *External Modules*.
   The schedule setting follows UNIX cron format. Enter values as follows:
   * Minute of the hour (0-59)
   * Hour of the day (0-23)
-  * Day of the month (1-31, or enter \* to match all days)
-  * Month (1-12, or enter \* to match all months)
-  * Day of the week (0-6, 0 = Sunday, 6 = Saturday, or enter \* to match all days)
+  * Day of the month (1-31)
+  * Month (1-12)
+  * Day of the week (0-6, 0 = Sunday, 6 = Saturday)
+  - For any of the parameters, you can enter `*` to match all, or use ranges such as `3-5`, slashes
+    to specify step (e.g. `5/10` for every 10th starting from 5), or separate several values with
+    commas.
 * **Check conditional logic** &ndash; Optionally enter REDCap conditional logic here. If conditional
   logic is entered, the connection will only be triggered on records which satisfy the condition.
 
@@ -86,12 +89,26 @@ in the project menu under *External Modules*.
 These fields only apply to HTTP/REST connections.
 
 * **URL** &ndash; The URL of the API server.
+  * To make an API request to the same REDCap server, enter the placeholder
+    `REDCAP_APP_PATH_API_FULL` here.
+  * Use `null:` as the URL to return a blank response instead of performing an API request. This can
+    be useful to simply set the response fields based on some conditional logic.
 * **HTTP Method** &ndash; The HTTP method to use. The documentation for the API you are connecting
   to should tell you the appropriate HTTP method.
 * **Request Headers** &ndash; Any HTTP headers that the API server expects in the request.
+  * To simulate a HTML form submission, use `Content-Type: application/x-www-form-urlencoded`
+    (this is automatically added when selecting *form field mode*) or
+    `Content-Type: multipart/form-data`, as appropriate for the request body format.
 * **Request Body** (POST and PUT requests only) &ndash; The data to submit in the request. This
   module will submit data exactly as provided (subject to placeholder replacement), you need to
   check that the data is in the format that the API server is expecting.
+  * For POST requests, you can enable *form field mode*, which will instead treat the request body
+    as a list of fields and values, with the field name and value separated by an equals sign (`=`).
+    * If this mode is used then raw data values can be entered directly, the request body will be
+      automatically converted to a URL-encoded string suitable for a form submission.
+    * Placeholder replacement takes place on each field name and value separately.
+    * If more than one `=` is entered on a line, the first `=` is treated as the separator and any
+      subsequent `=` characters are treated as literal `=` characters in the value.
 
 ### Placeholders
 
@@ -101,6 +118,9 @@ You can create as many placeholders as required.
 
 * **Placeholder Name** &ndash; A string value to search for in the *URL*, *Request Headers* and
   *Request Body*, to replace with the value retrieved from the project record.<br>
+  Placeholder names are searched *as is* and are not expected to be enclosed in any delimiter.
+  Ensure that placeholder names do not occur elsewhere in the request where they should not be
+  substituted.<br>
   If the *also replace defined placeholder names in response value paths* option is selected, then
   for any response field of type *response value*, the name of the response value (JSON path or
   XPath) will also have the placeholder names replaced with the value retrieved from the project
@@ -111,10 +131,19 @@ You can create as many placeholders as required.
   * You can also specify how the field is to be interpreted, see the *Field Interpretation* section
   of this document.
 * **Placeholder Format** &ndash; Specify how the value is to be encoded in the HTTP request.
+  The documentation for the API you are connecting to should tell you if a particular encoding is
+  expected.
   * *Raw value* will insert the data into the request as is. This could cause problems if the data
-    contains special characters, so you may need to consider an encoded format.
-  * *Base 64* and *URL encode* will apply that form of encoding. The documentation for the API you
-    are connecting to should tell you if a particular encoding is expected.
+    contains special characters, so you may need to consider an encoded format (unless *form field
+    mode* is used).
+  * *Base 64* converts the data into base 64 format, so e.g. `Base 64 string` becomes
+    `QmFzZSA2NCBzdHJpbmc=`.
+  * *JSON string* will encode the data into a string formatted for use in JSON data, so e.g.
+    `JSON éncoded "string"` becomes `"JSON \u00e9ncoded \"string\""`.
+  * *URL encode* will encode the data in a format suitable for use in URLs, so e.g.
+    `URL éncoded/string` becomes `URL%20%C3%A9ncoded%2Fstring`.
+  * *XML encode* will encode the data in a format suitable for use in XML, so e.g.
+    `XML 'éncoded" <string>` becomes `XML &apos;&#233;ncoded&quot; &lt;string&gt;`.
 
 ### SOAP (WSDL) Endpoint
 
@@ -143,11 +172,14 @@ parameters as required.
 
 ### Response Fields
 
-*For HTTP/REST connections, you will need to specify the* response format, *which can be one of:*
+*For HTTP/REST connections, you will need to specify the* status codes to accept *(as a comma
+separated list of 3 digit status codes, default=200) and the* response format, *which can be one of:*
 * *None/Ignore* &ndash; The request is sent, but the response (if any) is ignored and response
-  fields are not used.
-* *JSON* &ndash; The response is treated as JSON.
-* *XML* &ndash; The response is treated as XML.
+  fields set to use a response value will have no effect.
+* *CSV* &ndash; Comma Separated Values (delimiter = `,` and enclosure = `"`).
+* *JSON*
+* *Plain text* &ndash; Suitable for any text response without special formatting.
+* *XML*
 
 Specify the fields of the project record into which response values are to be stored. You can
 specify as many response fields as required.
@@ -168,10 +200,80 @@ specify as many response fields as required.
 If you are using a return/response value, the format of the value name will depend on the connection
 type and the response format (if applicable).
 
-* HTTP/REST - JSON: Use the JSON path to the value, as used by the
+* HTTP/REST: Use the [XPath](https://en.wikipedia.org/wiki/XPath) to the value. For non-XML
+  responses, the response is converted into XML so it can be searched with XPath - details below.
+  JSON responses also support JSON path, as used by the
   [MySQL JSON_EXTRACT() function](https://dev.mysql.com/doc/refman/5.7/en/json-search-functions.html#function_json-extract).
-* HTTP/REST - XML: Use the [XPath](https://en.wikipedia.org/wiki/XPath) to the value.
 * SOAP (WSDL): Use the name of the return value provided in the SOAP response.
+
+#### Conversion to XML
+
+HTTP/REST responses which are not XML are converted to an XML format so that values can be easily
+extracted using an XPath expression. Examples of the conversion for each data format are below:
+
+**CSV** - Original data:
+```csv
+"first field", "2nd field", "field 3"
+"some data", 27, true
+```
+XML representation:
+```xml
+<root>
+ <line>
+  <item>first field</item>
+  <item>2nd field</item>
+  <item>field 3</item>
+ </line>
+ <line>
+  <item header="first field">some data</item>
+  <item header="2nd field">27</item>
+  <item header="field 3">true</item>
+ </line>
+</root>
+```
+
+**JSON** - Original data:
+```json
+{
+  "array_field" : [ "a", "b", "c" ],
+  "object_field" : { "a" : 1, "b" : "z" },
+  "bool_true" : true,
+  "bool_false" : false,
+  "no_data" : null
+}
+```
+XML representation:
+```xml
+<root>
+ <array_field>
+  <item>a</item>
+  <item>b</item>
+  <item>c</item>
+ </array_field>
+ <object_field>
+  <a>1</a>
+  <b>z</b>
+ </object_field>
+ <bool_true>1</bool_true>
+ <bool_false>0</bool_false>
+ <no_data></no_data>
+</root>
+```
+
+**Plain text** - Original data:
+```
+This is the first line.
+This is the second line.
+This is the third line.
+```
+XML representation:
+```xml
+<root>
+ <line>This is the first line.</line>
+ <line>This is the second line.</line>
+ <line>This is the third line.</line>
+</root>
+```
 
 
 ## Field Interpretation
@@ -191,6 +293,8 @@ follows the field interpretation selection.
   can be used to count from the end, use -1 for the last line, -2 for the penultimate line etc.
 * **Concatenate lines** &ndash; For multi-line (notes) fields, convert into a single line using the
   value of the transformation parameters as the separator.
+* **File MIME type** &ndash; For file upload fields, returns the MIME type of the file instead of
+  the file data.
 
 
 ## API Connection Debugger

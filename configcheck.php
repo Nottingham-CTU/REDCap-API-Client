@@ -10,6 +10,9 @@ if ( $module->getProjectId() !== null )
 	exit;
 }
 
+$proxyHost = $module->getSystemSetting( 'http-proxy-host' );
+$proxyPort = $module->getSystemSetting( 'http-proxy-port' );
+
 ?>
 <h4 style="margin-top:0"><i class="fas fa-clipboard-check"></i> API Client Configuration Check</h4>
 <p>
@@ -97,3 +100,89 @@ else
  <img src="<?php echo APP_PATH_IMAGES . ( $testStatus ? 'tick.png' : 'exclamation.png' ); ?>">
  <b><?php echo $testStatus ? 'SUCCESSFUL!' : 'ERROR'; ?></b> - <?php echo $testStatusDesc, "\n"; ?>
 </div>
+<?php
+
+// Test 3: SOAP Connection
+if ( $testStatus )
+{
+
+	$soapOptions = [ 'cache_wsdl' => WSDL_CACHE_MEMORY ];
+	if ( $proxyHost != '' && $proxyPort != '' )
+	{
+		$soapOptions['proxy_host'] = $proxyHost;
+		$soapOptions['proxy_port'] = $proxyPort;
+	}
+	try
+	{
+		$soap = new \SoapClient( 'http://www.dneonline.com/calculator.asmx?wsdl', $soapOptions );
+		$soapResult = $soap->Add( [ 'intA' => 1, 'intB' => 2 ] );
+		$testStatus = $soapResult->AddResult == 3;
+		if ( $testStatus )
+		{
+			$testStatusDesc = 'The test SOAP request was performed successfully.';
+		}
+		else
+		{
+			$testStatusDesc = 'The test SOAP request could not be performed or returned an ' .
+			                  'unexpected result.';
+		}
+	}
+	catch ( \Exception $e )
+	{
+		$testStatus = false;
+		$testStatusDesc = 'The test SOAP request could not be performed: ' .
+		                  $module->escapeHTML( $e->getMessage() );
+	}
+?>
+<div class="<?php echo $testStatus ? 'darkgreen" style="color:green' : 'red'; ?>">
+ <b>Perform a test SOAP request</b>
+ <br><br>
+ <img src="<?php echo APP_PATH_IMAGES . ( $testStatus ? 'tick.png' : 'exclamation.png' ); ?>">
+ <b><?php echo $testStatus ? 'SUCCESSFUL!' : 'ERROR'; ?></b> - <?php echo $testStatusDesc, "\n"; ?>
+</div>
+<?php
+}
+
+
+// Test 4: HTTP/REST Connection
+if ( $bundleLocation != 'none' || $numCertificates > 0 )
+{
+
+	$curl = curl_init( 'https://catfact.ninja/fact' );
+	if ( $curlCertBundle != '' )
+	{
+		curl_setopt( $curl, CURLOPT_CAINFO, $curlCertBundle );
+	}
+	elseif ( ini_get( 'curl.cainfo' ) == '' )
+	{
+		curl_setopt( $curl, CURLOPT_CAINFO, self::REDCAP_CAINFO );
+	}
+	curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
+	if ( $proxyHost != '' && $proxyPort != '' )
+	{
+		curl_setopt( $curl, CURLOPT_PROXY, $proxyHost . ':' . $proxyPort );
+	}
+	curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
+	curl_setopt( $curl, CURLOPT_HTTPGET, true );
+	$httpResult = curl_exec( $curl );
+	$responseCode = curl_getinfo( $curl, CURLINFO_HTTP_CODE );
+	$testStatus = ( $responseCode == 200 && $httpResult != '' );
+	if ( $testStatus )
+	{
+		$testStatusDesc = 'The test HTTP/REST request was performed successfully.';
+	}
+	else
+	{
+		$testStatusDesc = 'The test HTTP/REST request could not be performed or returned an ' .
+		                  'unexpected result.';
+	}
+?>
+<div class="<?php echo $testStatus ? 'darkgreen" style="color:green' : 'red'; ?>">
+ <b>Perform a test HTTP/REST request</b>
+ <br><br>
+ <img src="<?php echo APP_PATH_IMAGES . ( $testStatus ? 'tick.png' : 'exclamation.png' ); ?>">
+ <b><?php echo $testStatus ? 'SUCCESSFUL!' : 'ERROR'; ?></b> - <?php echo $testStatusDesc, "\n"; ?>
+</div>
+<?php
+}
+?>
