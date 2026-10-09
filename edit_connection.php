@@ -96,7 +96,7 @@ function fieldSelector( $name, $incFunc = true )
 	$module->outputFieldDropdown( $name . '_field[]', '' );
 	echo addslashes( ob_get_clean() );
 	echo ' <input type="text" name="', $module->escapeHTML( $name ), '_inst[]"',
-		 ' pattern="^(\+|0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
+		 ' pattern="^(\\+|0|-?[1-9][0-9]*)?$" style="width:60px" title="Enter instance number">';
 	if ( $incFunc )
 	{
 		echo ' <select name="', $name, '_func[]" style="margin-left:20px">',
@@ -209,12 +209,13 @@ foreach ( $module->getConnectionTypes() as $connTypeID => $connTypeName )
     <td>
      <label>
       <input type="radio" name="conn_trigger" value="R" required<?php
-		echo ($connConfig['trigger'] ?? 'R') == 'R' ? ' checked' : ''; ?>> On record save
+		echo ($connConfig['trigger'] ?? 'R') == 'R' ? ' checked' : ''; ?>>
+      On save (for saved record)
      </label>
      <br>
      <label>
       <input type="radio" name="conn_trigger" value="C" required<?php
-		echo $connConfig['trigger'] == 'C' ? ' checked' : ''; ?>> On schedule
+		echo $connConfig['trigger'] == 'C' ? ' checked' : ''; ?>> On schedule (for all records)
      </label>
     </td>
    </tr>
@@ -378,7 +379,7 @@ echo $connConfig['type'] == 'http' && isset( $connData['placeholder_response_pat
    </tr>
    <tr>
     <td></td>
-    <td><a href="#" id="http_add_ph"><i class="fas fa-plus-circle fs12"></i> Add placeholder</a></td>
+    <td><a href="#" id="http_add_ph"><i class="mod-apiclient-icon-plus"></i> Add placeholder</a></td>
    </tr>
    <tr><th colspan="2">Response Fields</th></tr>
    <tr>
@@ -413,7 +414,7 @@ echo $connConfig['type'] == 'http' && isset( $connData['response_status_codes'] 
    <tr>
     <td></td>
     <td>
-     <a href="#" id="http_add_response"><i class="fas fa-plus-circle fs12"></i> Add response field</a>
+     <a href="#" id="http_add_response"><i class="mod-apiclient-icon-plus"></i> Add response field</a>
     </td>
    </tr>
    <tr>
@@ -453,14 +454,14 @@ echo $module->escapeHTML( $connData['response_errval'] ?? '' ); ?>">
    <tr>
     <td></td>
     <td>
-     <a href="#" id="wsdl_add_param"><i class="fas fa-plus-circle fs12"></i> Add parameter</a>
+     <a href="#" id="wsdl_add_param"><i class="mod-apiclient-icon-plus"></i> Add parameter</a>
     </td>
    </tr>
    <tr><th colspan="2">Response Fields</th></tr>
    <tr>
     <td></td>
     <td>
-     <a href="#" id="wsdl_add_response"><i class="fas fa-plus-circle fs12"></i> Add response field</a>
+     <a href="#" id="wsdl_add_response"><i class="mod-apiclient-icon-plus"></i> Add response field</a>
     </td>
    </tr>
    <tr>

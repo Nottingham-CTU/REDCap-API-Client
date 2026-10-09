@@ -1989,6 +1989,17 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				padding: 3px;
 				border: solid 1px #000;
 			}
+			.mod-apiclient-icon-plus
+			{
+				width: 12px;
+				height: 12px;
+				display: inline-block;
+				background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVz' .
+				'nAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6QoODC4AVe1/MAA' .
+				'AAIBJREFUKM+d0sERwjAQA8AFPpTgilKG6YN63EYKSAV04CcthI8CAR6M0Yw+dxqd7DteOKNiwRouuKT' .
+				'3hhN6RA1T2FLr0TydO24ovlHS69ukGpeCQ0TXUGolmio524frHO7RorUm7+Y84x7Ou0kT1qM/MBxp+NH' .
+				'D3zq8uF+nUffOD5uIMrQNgF0PAAAAAElFTkSuQmCC);
+			}
 			';
 		echo '<script type="text/javascript">',
 			 '(function (){var el = document.createElement(\'style\');',
