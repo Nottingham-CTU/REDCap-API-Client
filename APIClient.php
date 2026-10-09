@@ -1620,7 +1620,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			if ( ! array_key_exists( $projectID, $listProjectEvents ) )
 			{
 				$listProjectEvents[ $projectID ] =
-						new \Project( $projectID )->getUniqueEventNames( null );
+						(new \Project( $projectID ))->getUniqueEventNames( null );
 			}
 			$listEvents = $listProjectEvents[ $projectID ];
 		}
