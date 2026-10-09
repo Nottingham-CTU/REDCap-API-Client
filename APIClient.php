@@ -215,18 +215,29 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				continue;
 			}
 			// Check that the event/form is the triggering event/form (if applicable).
-			$connEventID = $connConfig['event'] == ''
-			                    ? '' : \REDCap::getEventIdFromUniqueEvent( $connConfig['event'] );
-			if ( ( $connConfig['event'] != '' && $connEventID != $event_id ) ||
-			     ( $connConfig['form'] != '' && $connConfig['form'] != $instrument ) )
+			if ( $connConfig['event'] == '' )
 			{
-				continue;
+				$connConfig['event'] = [];
 			}
-			// Check the conditional logic (if applicable).
-			if ( $connConfig['condition'] != '' &&
-			     \REDCap::evaluateLogic( $connConfig['condition'], $project_id, $record, $event_id,
-			                             ( $isRepeating ? $repeat_instance : 1 ),
-			                             ( $isRepeating ? $instrument : null ) ) !== true )
+			elseif ( is_string( $connConfig['event'] ) )
+			{
+				$connConfig['event'] = [ $connConfig['event'] ];
+			}
+			$connEventIDs = [];
+			foreach ( $connConfig['event'] as $connEventName )
+			{
+				$connEventIDs[] = \REDCap::getEventIdFromUniqueEvent( $connEventName );
+			}
+			if ( $connConfig['form'] == '' )
+			{
+				$connConfig['form'] = [];
+			}
+			elseif ( is_string( $connConfig['form'] ) )
+			{
+				$connConfig['form'] = [ $connConfig['form'] ];
+			}
+			if ( ( !empty( $connEventIDs ) && !in_array( $event_id, $connEventIDs ) ) ||
+			     ( !empty( $connConfig['form'] ) && !in_array( $instrument, $connConfig['form'] ) ) )
 			{
 				continue;
 			}
@@ -236,21 +247,13 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		foreach ( $listRunConnections as $connID => $connConfig )
 		{
 			// Perform the appropriate logic for the connection type.
-			$connData = $this->getConnectionData( $connID );
 			$this->apiDebug( 'START CONNECTION: ' . $connConfig['label'] );
 			$this->apiDebug( 'Triggered by form submission (' . $instrument . '), record ' .
 			                 $record . ( $eventName == '' ? '' : ", $eventName" ) .
 			                 ( $isRepeating ? ", instance $repeat_instance" : '' ) );
-			if ( $connConfig['type'] == 'http' )
-			{
-				$this->performHTTP( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ),
-				                    $eventName );
-			}
-			elseif ( $connConfig['type'] == 'wsdl' )
-			{
-				$this->performWSDL( $connData, $record, ( $isRepeating ? $repeat_instance : 0 ),
-				                    $eventName );
-			}
+			$this->runConnection( $project_id, $connID, $connConfig, $record, $eventName,
+			                      ( $isRepeating ? $repeat_instance : 0 ),
+			                      ( $isRepeating ? $instrument : null ) );
 			$this->apiDebug( 'END CONNECTION' );
 		}
 	}
@@ -349,38 +352,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 			}
 			$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", $execTime );
 			// For each record (& each event if applicable)...
-			$connData = $this->getConnectionData( $connID );
-			$listEvents = [ null ];
-			if ( isset( $connConfig['all_events'] ) )
-			{
-				$obProj = new \Project( $projectID );
-				$listEvents = $obProj->getUniqueEventNames( null );
-			}
-			foreach ( array_keys( \REDCap::getData( [ 'project_id' => $projectID,
-			                                          'return_format' => 'array',
-			                                          'fields' => $this->getRecordIdField() ] ) )
-			          as $record )
-			{
-				foreach ( $listEvents as $event )
-				{
-					// Check the conditional logic (if applicable).
-					if ( $connConfig['condition'] != '' &&
-					     \REDCap::evaluateLogic( $connConfig['condition'],
-					                             $projectID, $record, $event ) !== true )
-					{
-						continue;
-					}
-					// Perform the appropriate logic for the connection type.
-					if ( $connConfig['type'] == 'http' )
-					{
-						$this->performHTTP( $connData, $record, 0, $event ?? '' );
-					}
-					elseif ( $connConfig['type'] == 'wsdl' )
-					{
-						$this->performWSDL( $connData, $record, 0, $event ?? '' );
-					}
-				}
-			}
+			$this->runConnection( $projectID, $connID, $connConfig );
 		}
 		$_GET['pid'] = $oldContext;
 	}
@@ -1635,6 +1607,56 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 
 
 
+	// Run a connection.
+	function runConnection( $projectID, $connID, $connConfig, $recordID = null, $eventName = null,
+	                        $instanceNum = 0, $instrument = null )
+	{
+		static $listProjectConnections = [];
+		static $listProjectEvents = [];
+		// Get the list of events and records to run the connection for.
+		$listEvents = [ $eventName ];
+		if ( isset( $connConfig['all_events'] ) )
+		{
+			if ( ! array_key_exists( $projectID, $listProjectEvents ) )
+			{
+				$listProjectEvents[ $projectID ] =
+						new \Project( $projectID )->getUniqueEventNames( null );
+			}
+			$listEvents = $listProjectEvents[ $projectID ];
+		}
+		$listRecords = ( $recordID !== null ? [ $recordID ] :
+		                 array_keys( \REDCap::getData( [ 'project_id' => $projectID,
+		                                                 'fields' => $this->getRecordIdField(),
+		                                                 'return_format' => 'array' ] ) ) );
+		// Get the connection information.
+		$connData = $this->getConnectionData( $connID );
+		// Run the connection.
+		foreach ( $listRecords as $record )
+		{
+			foreach ( $listEvents as $event )
+			{
+				// Check the conditional logic (if applicable).
+				if ( $connConfig['condition'] != '' &&
+				     \REDCap::evaluateLogic( $connConfig['condition'],
+				                             $projectID, $record, $event ) !== true )
+				{
+					continue;
+				}
+				// Perform the appropriate logic for the connection type.
+				if ( $connConfig['type'] == 'http' )
+				{
+					$this->performHTTP( $connData, $record, $instanceNum, $event ?? '' );
+				}
+				elseif ( $connConfig['type'] == 'wsdl' )
+				{
+					$this->performWSDL( $connData, $record, $instanceNum, $event ?? '' );
+				}
+			}
+		}
+	}
+
+
+
 	// Set the value of project fields.
 	// $inputData is a 2-level array, where the second level array keys are 'event', 'field',
 	// 'instance', and 'value', defining the fields and the data to insert.
@@ -1848,7 +1870,7 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 		$this->setSystemSetting( "p$projectID-conn-data-$connID", json_encode( $connData ) );
 		if ( $connConfig['active'] !== false && $connConfig['trigger'] == 'C' )
 		{
-			if ( $this->getSystemSetting( "p$projectIDconn-lastrun-$connID" ) == null )
+			if ( $this->getSystemSetting( "p$projectID-conn-lastrun-$connID" ) == null )
 			{
 				$this->setSystemSetting( "p$projectID-conn-lastrun-$connID", time() );
 			}
