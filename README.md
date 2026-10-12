@@ -38,11 +38,10 @@ Specify a HTTP proxy host (e.g. `proxy.example.com`) and port (e.g. `3128`) if r
 
 ### File path of cURL CA bundle
 
-If HTTP/REST connections to secure (https) endpoints fail, this may be because the cURL library does
-not have a set of trusted certificate authorities. To fix this, obtain a file of trusted certificate
-authority root certificates and place the file somewhere on the server. You can specify the location
-of this file in the *curl.cainfo* setting in php.ini, but if you are unable to change that setting
-or you would like to override it then you can specify the CA bundle file location here.
+If HTTP/REST connections to secure (https) endpoints fail, this may be because the server's
+certificate is not signed by a certificate authority listed in the CA bundle provided with REDCap.
+If you need to use an alternate CA bundle, you can specify the location of the CA bundle file here
+or in the *curl.cainfo* setting in php.ini (the module setting takes precedence if both are set).
 
 ## Project-level configuration options
 
@@ -62,7 +61,8 @@ in the project menu under *External Modules*.
 
 * **Connection Label** &ndash; A descriptive name for the connection.
 * **Connection Type** &ndash; This can be either *HTTP/REST* or *SOAP (WSDL)*.
-* **Connection is active** &ndash; The connection will only be triggered if this is set to yes.
+* **Connection is active** &ndash; The connection will only be triggered if this is set to *yes*, or
+  if set to *in production only* on a production server/project.
 * **Trigger connection** &ndash; Choose between triggering the connection when a record is saved,
   or according to a schedule.
 * **Limit to event/form** &ndash; If triggered on record save, optionally only trigger when the
@@ -70,8 +70,7 @@ in the project menu under *External Modules*.
   on all forms for that event), or specify only a form (to trigger on that form on all events).
 * **Schedule** &ndash; If triggered on schedule, specify when to trigger the connection. Note that
   the schedule is not checked every minute, so the time should be treated as approximate. The
-  schedule will be run according to your server's time zone. The maximum frequency of a scheduled
-  connection is once per day.<br>
+  schedule will be run according to your server's time zone.<br>
   The schedule setting follows UNIX cron format. Enter values as follows:
   * Minute of the hour (0-59)
   * Hour of the day (0-23)
