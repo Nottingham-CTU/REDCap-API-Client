@@ -632,7 +632,8 @@ echo $connConfig['type'] == 'wsdl' && isset( $connData['response_save_blanks'] )
      vNew.find('select[name="http_response_type[]"]').change(function(){
        var vOption = vNew.find('select[name="http_response_type[]"]').val()
        var vSpan = vNew.find('span')
-       vSpan.eq(0).css('display', ( vOption == 'C' || vOption == 'R' ) ? '' : 'none')
+       vSpan.eq(0).css('display',
+                       ( vOption == 'C' || vOption == 'R' || vOption == 'Rb64' ) ? '' : 'none')
      })
      vNew.insertAfter( vPrev )
      return false
