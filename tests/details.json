@@ -1,0 +1,17 @@
+[
+	{
+		"file" : "test_01-HTTP_on_form_submit.py",
+		"name" : "HTTP connection on form submit",
+		"expected" : "The HTTP connection runs for the saved record, uses the field values in the placeholders and saves the response values."
+	},
+	{
+		"file" : "test_02-SOAP_on_form_submit.py",
+		"name" : "SOAP/WSDL connection on form submit",
+		"expected" : "The SOAP/WSDL connection runs for the saved record, uses the parameter values and saves the response values."
+	},
+	{
+		"file" : "test_03-Trigger_on_schedule.py",
+		"name" : "Trigger on schedule",
+		"expected" : "A connection which is configured to trigger on schedule is correctly triggered at the scheduled time."
+	}
+]
