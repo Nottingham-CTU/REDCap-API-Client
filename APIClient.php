@@ -1638,7 +1638,9 @@ class APIClient extends \ExternalModules\AbstractExternalModule
 				// Check the conditional logic (if applicable).
 				if ( $connConfig['condition'] != '' &&
 				     \REDCap::evaluateLogic( $connConfig['condition'],
-				                             $projectID, $record, $event ) !== true )
+				                             $projectID, $record, $event,
+				                             ( $instrument === null ? 1 : $instanceNum ),
+				                             $instrument ) !== true )
 				{
 					continue;
 				}
